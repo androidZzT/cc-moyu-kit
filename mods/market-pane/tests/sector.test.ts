@@ -5,6 +5,7 @@ import { GAINERS_BODY, LOSERS_BODY } from './sector-fixture'
 
 describe('parseSectorRank', () => {
   test('reads name and change percent of each listed industry', () => {
+    expect(buildSectorUrl('gainers')).toMatch(/^http:\/\/proxy\.finance\.qq\.com\//)
     expect(buildSectorUrl('gainers')).toContain('board_type=hy2')
     expect(buildSectorUrl('gainers')).toContain('direct=down')
     expect(buildSectorUrl('losers')).toContain('direct=up')

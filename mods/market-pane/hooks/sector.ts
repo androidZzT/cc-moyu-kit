@@ -1,6 +1,11 @@
 import type { SectorCell } from '../types'
 
-const RANK_ENDPOINT = 'https://proxy.finance.qq.com/cgi/cgi-bin/rank/pt/getRank'
+/**
+ * Plain http on purpose: the https certificate chains to GlobalSign Root R3,
+ * which fails certificate verification in the host's `$.http.fetch`, and no
+ * other Tencent host serves this ranking. The data is public and only displayed.
+ */
+const RANK_ENDPOINT = 'http://proxy.finance.qq.com/cgi/cgi-bin/rank/pt/getRank'
 /** 申万二级行业 */
 const BOARD_TYPE = 'hy2'
 export const CELLS_PER_SIDE = 6

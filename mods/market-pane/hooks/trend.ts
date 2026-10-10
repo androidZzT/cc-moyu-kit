@@ -1,7 +1,12 @@
 import type { Quote } from '../types'
 import { isMarketOpen, marketLocalDate } from './hours'
 
-export const MINUTE_ENDPOINT = 'https://web.ifzq.gtimg.cn/appstock/app/minute/query?code='
+/**
+ * ifzq.gtimg.cn rather than web.ifzq.gtimg.cn: same endpoint and body, but its
+ * certificate chains to DigiCert. web.ifzq's chains to GlobalSign Root R3,
+ * which fails certificate verification in the host's `$.http.fetch`.
+ */
+export const MINUTE_ENDPOINT = 'https://ifzq.gtimg.cn/appstock/app/minute/query?code='
 /** Most samples kept per US series; a full session at 10 s per refresh would be 2,340. */
 export const MAX_SAMPLES = 400
 

@@ -7,8 +7,8 @@
 - 现有结构（见归档 `2026-10-09-market-pane` 的 D7）：`claude plugin validate` 要求 `$` 只能传给同一文件内声明的函数，atom 也必须和 `read/update` 在同一文件，所以所有接触 `$` 的逻辑都在 `register.tsx`（当前 141 行），其余模块是纯函数；`view.tsx`（约 170 行）只接收元素表和纯数据。
 - 刷新调度是单一 10 秒 tick + 按交易时段节流（归档 D4），热重载安全。
 - 接口实测（2026-10-09）：
-  - 分时 `https://web.ifzq.gtimg.cn/appstock/app/minute/query?code=<code>`：UTF-8 JSON，`data.<code>.data.data` 为 `"HHMM price volume amount"` 字符串数组，`data.<code>.data.date` 为 `YYYYMMDD`；**一次只能查一个代码**（多代码返回 `code: -1`）；A股/港股指数与个股可用，美股只返回 1 个点。
-  - 板块 `https://proxy.finance.qq.com/cgi/cgi-bin/rank/pt/getRank?board_type=hy2&sort_type=PriceRatio&direct=down|up&offset=0&count=6`：UTF-8 JSON，`data.rank_list[]` 含 `name`、`zdf`（涨跌幅字符串，如 `"7.87"`）、`code`；`direct=down` 为涨幅榜（降序），`direct=up` 为跌幅榜；`hy2` 共 124 个行业（申万二级），名称最长 7 个字。
+  - 分时 `https://ifzq.gtimg.cn/（原 web.ifzq.gtimg.cn，见 kline-game 变更）appstock/app/minute/query?code=<code>`：UTF-8 JSON，`data.<code>.data.data` 为 `"HHMM price volume amount"` 字符串数组，`data.<code>.data.date` 为 `YYYYMMDD`；**一次只能查一个代码**（多代码返回 `code: -1`）；A股/港股指数与个股可用，美股只返回 1 个点。
+  - 板块 `http://proxy.finance.qq.com/（https 证书宿主不信任，见 kline-game 变更）cgi/cgi-bin/rank/pt/getRank?board_type=hy2&sort_type=PriceRatio&direct=down|up&offset=0&count=6`：UTF-8 JSON，`data.rank_list[]` 含 `name`、`zdf`（涨跌幅字符串，如 `"7.87"`）、`code`；`direct=down` 为涨幅榜（降序），`direct=up` 为跌幅榜；`hy2` 共 124 个行业（申万二级），名称最长 7 个字。
 
 ## Goals / Non-Goals
 

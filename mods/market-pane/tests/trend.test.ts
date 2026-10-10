@@ -16,7 +16,7 @@ const quote = (price: number): Quote => ({ price, prevClose: 100, change: price 
 
 describe('parseMinute', () => {
   test('A股指数: the series starts at the 09:30 price and ends at the latest minute', () => {
-    expect(buildMinuteUrl('sh000001')).toBe('https://web.ifzq.gtimg.cn/appstock/app/minute/query?code=sh000001')
+    expect(buildMinuteUrl('sh000001')).toBe('https://ifzq.gtimg.cn/appstock/app/minute/query?code=sh000001')
     const series = parseMinute('sh000001', MINUTE_BODY)
     expect(series).toHaveLength(7)
     expect(series[0]).toBe(3804.09)
