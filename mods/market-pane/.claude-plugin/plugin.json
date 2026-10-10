@@ -1,0 +1,10 @@
+{
+  "name": "market-pane",
+  "version": "0.1.0",
+  "description": "侧边面板查看 A股/港股/美股指数与自选股行情",
+  "types": "./types/index.d.ts",
+  "author": {
+    "name": "zhangzhengtian",
+    "email": "zzt186@gmail.com"
+  }
+}

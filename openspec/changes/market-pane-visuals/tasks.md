@@ -1,0 +1,29 @@
+# Tasks
+
+## 1. 补录已实现界面
+
+- [x] 1.1 核对 `hooks/view.tsx` 现有实现与 market-pane spec「数字列对齐」「市场状态灯」「分组分隔线」三条要求一致，在 `tests/view.test.ts` 补「数字列对齐」场景（深证成指 `12,394.61` / `-226.29` / `▼1.79%`），验证 `claude plugin test mods/market-pane` 通过
+
+## 2. 状态契约与纯函数
+
+- [x] 2.1 按 design D9 扩展 `types/index.d.ts`（`trends`、`trendFeed`、`sectors`、`flash`），在 `register.tsx` 定义对应 atom 和初始值，验证 `claude plugin validate mods/market-pane` 通过
+- [x] 2.2 新增 `hooks/bars.ts`：涨跌幅 → 4 格 1/8 精度条形；测试 +0.50% 为满格 1/8、+10% 满格不越界、0 与无数据为空
+- [x] 2.3 新增 `hooks/trend.ts`：分时 JSON 解析（用 2026-10-09 实测响应做 fixture）、等间隔重采样（最新点在最右）、8 档 sparkline 映射（含 max==min、少于 2 点）、美股采样追加（休市不追加、换日清空、上限 400）；测试覆盖 intraday-trend spec 的「A股指数」「新交易日」「休市不采样」与 market-pane spec「冲高回落」「暂无走势数据」
+- [x] 2.4 新增 `hooks/sector.ts`：板块 JSON 解析（实测 fixture）、涨跌榜合并为 12 格顺序、`|zdf|>=3%` 深浅分档；测试覆盖 sector-heatmap spec「正常展示」顺序与「大涨板块」「小跌板块」分档；非法 JSON 抛错供调用方降级
+
+## 3. 数据拉取与调度（register.tsx）
+
+- [x] 3.1 接入分时拉取：tick 内按市场节流（盘中 60s / 休市 30min）、每批 5 个并发、单个失败保留旧序列；面板打开与新增自选时只补拉无序列标的；用 mock clock/http 测试「盘中更新」「面板关闭不请求」「单个标的失败」
+- [x] 3.2 接入美股采样：报价成功时按 D4 追加；测试 5 分钟盘中约 30 个点、休市不追加
+- [x] 3.3 接入板块拉取：涨/跌两个请求、按 A股时段节流、面板打开且无数据时立即拉、失败保留旧数据；测试「盘中刷新」「首次即失败」
+- [x] 3.4 接入跳动计算：报价成功时与写入前 `quotes` 比较得出 `flash`，失败时清空；测试 spec「价格变动」「刷新失败」两个场景及首次数据不高亮
+
+## 4. 面板绘制
+
+- [x] 4.1 `view.tsx` 改为每标的两行：第二行为走势线（宽度 `bodyColumns-6`，按最新价相对昨收着色）+ 条形；现价单元格按 `flash` 反色；更新 view 测试断言第二行存在、走势线字符集与颜色、反色属性
+- [x] 4.2 新增 `hooks/heatmap-view.tsx`：「板块」分组标题与状态灯、3 列 × 4 行色块（hex 背景两档、名称截断、涨跌幅一位小数带符号）、无数据时暗色「板块数据暂不可用」；挂载测试在 40 列面板断言 12 个色块、顺序和占位文本，且不超出面板宽度
+- [x] 4.3 更新 `mods/market-pane/README.md`：新增两行布局、走势线来源（美股为面板打开期间采样）、板块热力图、新增的两个数据源声明，按 README 描述核对面板实际表现
+
+## 5. 集成验证
+
+- [ ] 5.1 全量运行 `claude plugin validate` 与 `claude plugin test`（全部通过）；在真实会话 A股盘中打开面板观察 3 分钟：走势线随分钟延长、价格变动时现价反色一个周期、板块网格更新，期间输入 prompt 不受影响且无 toast

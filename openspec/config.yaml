@@ -1,0 +1,39 @@
+schema: spec-driven
+
+context: |
+  所有 OpenSpec artifact 用中文撰写（代码标识符、API 名保持英文）
+  产物是 Claude Code mod（plugin hooks 模块，TypeScript/TSX），运行在无 DOM、无 Node 的沙箱里，只能通过 $（$.http.fetch / $.clock / $.ui / $.state / $.store）访问外部
+  $.http.fetch 只返回 text（按 UTF-8 解码），GBK 编码的行情接口里的中文字段不可直接使用
+  目标是 vibecoding 时低打扰地看行情：不得抢占输入焦点、不得弹窗打断、刷新失败静默降级
+  只读行情展示，不涉及下单、账户或任何交易操作
+
+# Project context (optional)
+# Add only constraints that should guide OpenSpec artifacts and workflows.
+# Include constraints an agent cannot infer by reading the code.
+# Keep general project documentation and discoverable codebase facts out.
+# Example:
+#   context: |
+#     Designs and tasks must cover Windows, macOS, and Linux
+#     Write all artifacts in Spanish
+
+# Per-artifact rules (optional)
+# Add custom rules for specific artifacts.
+# Example:
+#   rules:
+#     proposal:
+#       - Keep proposals under 500 words
+#       - Always state what is out of scope
+#     tasks:
+#       - Break tasks into chunks of max 2 hours
+
+# Per-operation guidance (optional)
+# Add advisory guidance for how apply and archive work should be conducted.
+# This is separate from artifact rules above.
+# Example:
+#   operations:
+#     apply:
+#       guidance:
+#         - Keep test summaries concise
+#     archive:
+#       guidance:
+#         - Summarize the archive outcome before finishing
