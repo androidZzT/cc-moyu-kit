@@ -8,6 +8,7 @@ export type MarketCommand =
   | { kind: 'add'; code: string; name?: string }
   | { kind: 'remove'; code: string }
   | { kind: 'list' }
+  | { kind: 'play' }
   | { kind: 'usage' }
 
 export type ListChange = { list: readonly WatchItem[]; message: string; isChanged: boolean }
@@ -17,6 +18,7 @@ export const parseCommand = (args: string): MarketCommand => {
   const [verb, code, ...rest] = args.trim().split(/\s+/).filter(Boolean)
   if (verb === undefined) return { kind: 'toggle' }
   if (verb === 'list' && code === undefined) return { kind: 'list' }
+  if (verb === 'play' && code === undefined) return { kind: 'play' }
   if (verb === 'remove' && code !== undefined && rest.length === 0) return { kind: 'remove', code }
   if (verb === 'add' && code !== undefined) {
     return rest.length > 0 ? { kind: 'add', code, name: rest.join(' ') } : { kind: 'add', code }

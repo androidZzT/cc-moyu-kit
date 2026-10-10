@@ -13,6 +13,8 @@ describe('parseCommand', () => {
     expect(parseCommand('ad sh600519')).toEqual({ kind: 'usage' })
     expect(parseCommand('add')).toEqual({ kind: 'usage' })
     expect(parseCommand('list extra')).toEqual({ kind: 'usage' })
+    expect(parseCommand(' play ')).toEqual({ kind: 'play' })
+    expect(parseCommand('play now')).toEqual({ kind: 'usage' })
   })
 })
 

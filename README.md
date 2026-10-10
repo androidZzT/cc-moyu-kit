@@ -55,6 +55,13 @@ Claude Code 2.1.287 added **Claude Mods**: plugins can now open their own panes,
 ### 🔕 Low interruption
 > No focus stealing, no dialogs, no sounds. When a fetch fails the pane keeps the last data and marks it stale.
 
+### 🕹️ K-line guessing game for closed markets
+> `/market play` turns the pane into a game: a random stretch of real daily candles from an A-share or HK name, with the name and dates hidden. Guess whether the close 5 trading days later is higher or lower, then watch the hidden candles appear one by one along with the stock, the dates and the 5-day change. Score, accuracy and streaks are kept across sessions.
+
+<p align="center">
+  <img src="docs/kline-game.png" width="600" alt="K-line guessing game in the market-pane">
+</p>
+
 ### 🎨 Readable without color
 > Red for up and green for down (CN convention), with ▲/▼ as well, so direction still reads on terminals without color. Prices use thousands separators, and all three number columns are right-aligned.
 
@@ -79,6 +86,9 @@ At 144 columns or wider, the pane opens on the right once the session starts. In
 | `/market add <code> [name]` | Add to the watchlist; adding an existing code renames it |
 | `/market remove <code>` | Remove from the watchlist |
 | `/market list` | List the watchlist |
+| `/market play` | Switch between quotes and the K-line guessing game |
+
+In the game, click the pane once so it takes the keys: `↑`/`k` guess up, `↓`/`j` guess down, `Enter`/`n` next round, `q` back to quotes, `Esc` hands the keyboard back to the prompt. The buttons work with the mouse too. While all three markets are closed, a dim line under the heatmap points to `/market play`.
 
 | Market | Code format | Example |
 | --- | --- | --- |
@@ -99,6 +109,7 @@ The quote API returns names in GBK, which the mod can't decode, so watchlist row
 | Sectors (A-share hours) | every 60 s | every 30 min |
 
 - Nothing is requested while the pane is closed.
+- The game fetches one symbol's daily candles per round (320 days, forward-adjusted), only when a round is dealt.
 - US intraday data isn't available from the API, so the US trend line is sampled from quote refreshes while the pane is open.
 - Trading hours are judged in Beijing time, with US daylight saving handled. Public holidays are not.
 

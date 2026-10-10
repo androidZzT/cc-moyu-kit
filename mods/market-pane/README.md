@@ -48,6 +48,7 @@ claude --plugin-dir /path/to/claude_trading_mods/mods/market-pane
 | `/market add <代码> [名称]` | 添加自选；已经添加过的代码会改成新名称 |
 | `/market remove <代码>` | 删除自选 |
 | `/market list` | 列出自选 |
+| `/market play` | 在行情和 K 线猜涨跌之间切换（游戏内 ↑/↓ 猜涨跌，Enter 下一局，q 退出） |
 
 代码格式：
 
@@ -80,8 +81,9 @@ claude --plugin-dir /path/to/claude_trading_mods/mods/market-pane
 | 用途 | 接口 |
 | --- | --- |
 | 报价 | `https://qt.gtimg.cn/q=<代码,...>` |
-| 分时走势 | `https://web.ifzq.gtimg.cn/appstock/app/minute/query?code=<代码>` |
-| 板块排行 | `https://proxy.finance.qq.com/cgi/cgi-bin/rank/pt/getRank?board_type=hy2&...` |
+| 分时走势 | `https://ifzq.gtimg.cn/appstock/app/minute/query?code=<代码>` |
+| 日 K（游戏） | `https://ifzq.gtimg.cn/appstock/app/fqkline/get?param=<代码>,day,,,320,qfq` |
+| 板块排行 | `http://proxy.finance.qq.com/cgi/cgi-bin/rank/pt/getRank?board_type=hy2&...` |
 
 这些都是非官方接口，没有可用性保证，接口变更或限流时对应数据会停在上一次（报价会标「过期」）。行情仅供参考，不构成投资建议。
 
@@ -105,3 +107,8 @@ npx -p typescript tsc -p .   # 先用 --plugin-dir 加载一次，生成 .claude
 | `hooks/watchlist.ts` | 自选增删、子命令解析 |
 | `hooks/view.tsx` | 面板绘制：指数与自选的两行布局 |
 | `hooks/heatmap-view.tsx` | 板块热力图绘制 |
+| `hooks/kline.ts` | 日 K URL 与解析 |
+| `hooks/game.ts` | 题库、出题、判定、计分 |
+| `hooks/kline-chart.ts` | K 线字符图布局 |
+| `hooks/game-view.tsx` | 游戏视图绘制 |
+| `hooks/game-surface.tsx` | 游戏的 Client 模块：按键、按钮、逐根揭晓 |

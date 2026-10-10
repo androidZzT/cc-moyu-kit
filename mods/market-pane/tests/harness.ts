@@ -8,12 +8,33 @@ import { MINUTE_BODY } from './trend-fixture'
 
 export type HttpReply = { status: number; text: string } | Error
 
-export type StateKey = 'quotes' | 'feed' | 'watchlist' | 'trends' | 'trendFeed' | 'sectors' | 'flash'
+export type StateKey =
+  | 'quotes'
+  | 'feed'
+  | 'watchlist'
+  | 'trends'
+  | 'trendFeed'
+  | 'sectors'
+  | 'flash'
+  | 'mode'
+  | 'game'
+  | 'score'
 
 const ok = (text: string): HttpReply => ({ status: 200, text })
 
 /** The captured minute series, answered under whichever code was asked for. */
 const minuteBodyFor = (code: string): string => MINUTE_BODY.replace('"sh000001"', JSON.stringify(code))
+
+/** 320 synthetic daily candles for any code: a wave on a slow drift, so cuts land on both outcomes. */
+export const klineBodyFor = (code: string): string => {
+  const candles = Array.from({ length: 320 }, (_, i) => {
+    const close = 100 + 10 * Math.sin(i / 6) + i * 0.05
+    const open = 100 + 10 * Math.sin((i - 1) / 6) + (i - 1) * 0.05
+    const day = new Date(Date.UTC(2025, 0, 1) + i * 86_400_000).toISOString().slice(0, 10)
+    return [day, open.toFixed(3), close.toFixed(3), (Math.max(open, close) + 1).toFixed(3), (Math.min(open, close) - 1).toFixed(3), '1000']
+  })
+  return JSON.stringify({ code: 0, msg: '', data: { [code]: { day: candles } } })
+}
 
 /** Beijing wall-clock time to epoch ms. */
 export const bj = (y: number, mo: number, d: number, h: number, mi = 0): number =>
@@ -32,6 +53,8 @@ export const setupWorld = (on: On, options: { now: number; store?: Record<string
   const requests: string[] = []
   const minuteRequests: string[] = []
   const sectorRequests: string[] = []
+  const klineRequests: string[] = []
+  let klineReply: HttpReply | undefined
   let reply: HttpReply = ok(SAMPLE_BODY)
   const minuteReplies = new Map<string, HttpReply>()
   let sectorReply: HttpReply | undefined
@@ -51,6 +74,11 @@ export const setupWorld = (on: On, options: { now: number; store?: Record<string
       minuteRequests.push(url)
       const code = /[?&]code=([^&]*)/.exec(url)?.[1] ?? ''
       return minuteReplies.get(code) ?? ok(minuteBodyFor(code))
+    }
+    if (url.includes('/fqkline/')) {
+      klineRequests.push(url)
+      const code = /param=([^,]*)/.exec(url)?.[1] ?? ''
+      return klineReply ?? ok(klineBodyFor(code))
     }
     if (url.includes('/rank/')) {
       sectorRequests.push(url)
@@ -81,6 +109,7 @@ export const setupWorld = (on: On, options: { now: number; store?: Record<string
     requests,
     minuteRequests,
     sectorRequests,
+    klineRequests,
     panes,
     stored: (key: string): unknown => stored.get(key),
     read: <T>(key: StateKey): T => state.get(key) as T,
@@ -92,6 +121,9 @@ export const setupWorld = (on: On, options: { now: number; store?: Record<string
     },
     setSectorReply: (next: HttpReply | undefined) => {
       sectorReply = next
+    },
+    setKlineReply: (next: HttpReply | undefined) => {
+      klineReply = next
     },
   }
 }
