@@ -1,0 +1,120 @@
+<div align="center">
+  <img src="docs/market-pane.png" width="720" alt="market-pane in Claude Code" style="border-radius: 16px;">
+  <h1>claude-trading-mods</h1>
+  <p><strong>Watch A-share, Hong Kong and US markets from a side pane inside Claude Code.</strong></p>
+  <p><em>Claude Mods built on Claude Code's plugin hooks. No API key, no extra window, and the pane never takes your input focus.</em></p>
+
+  <p>
+    <a href="https://github.com/androidZzT/claude-trading-mods/stargazers"><img src="https://img.shields.io/github/stars/androidZzT/claude-trading-mods?style=flat-square" alt="Stars"></a>
+    <img src="https://img.shields.io/badge/Claude%20Code-%E2%89%A5%202.1.295-D97757?style=flat-square" alt="Claude Code">
+    <img src="https://img.shields.io/badge/TypeScript-strict-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript">
+    <img src="https://img.shields.io/badge/API%20key-not%20required-brightgreen?style=flat-square" alt="No API key">
+    <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey?style=flat-square" alt="Platform">
+  </p>
+
+  <p>
+    <a href="#-why">Why?</a> &bull;
+    <a href="#-features">Features</a> &bull;
+    <a href="#-quick-start">Quick Start</a> &bull;
+    <a href="#-commands">Commands</a> &bull;
+    <a href="#-refresh--data-sources">Data</a> &bull;
+    <a href="#-development">Development</a> &bull;
+    English | <a href="README_CN.md">简体中文</a>
+  </p>
+</div>
+
+---
+
+## 🤔 Why?
+
+A long agent turn leaves you waiting. Switching to a broker app or a browser tab to check the market pulls you out of the terminal, and it's easy to miss the moment Claude needs you again.
+
+Claude Code 2.1.287 added **Claude Mods**: plugins can now open their own panes, register commands and fetch data through the host. `market-pane` uses that to dock a market board on the right side of the transcript. You check the market with a glance, and your prompt keeps the focus.
+
+> claude-trading-mods is a community project, not affiliated with Anthropic. Quotes are for reference only and are not investment advice.
+
+---
+
+## 🚀 Features
+
+### 📈 Indices across three markets
+> A-shares (SSE Composite, SZSE Component, ChiNext), Hong Kong (Hang Seng, Hang Seng Tech) and US (Dow Jones, Nasdaq, S&P 500), grouped by market with an open/closed light for each.
+
+### ⭐ Watchlist
+> Up to 20 symbols across A-shares, HK and US. Kept across sessions in the plugin store.
+
+### 〰️ Intraday trend line
+> Each symbol gets a second row with today's sparkline, scaled to its own high and low, plus a bar sized by the percent change (1 cell = 1%, 1/8-cell precision, full at ±4%).
+
+### 🟥 Sector heatmap
+> Top 6 gainers and top 6 losers among Shenwan level-2 industries. Darker cells mean moves of 3% or more.
+
+### ⚡ Tick highlight
+> A price that moved since the last refresh is shown in reverse video for one refresh cycle.
+
+### 🔕 Low interruption
+> No focus stealing, no dialogs, no sounds. When a fetch fails the pane keeps the last data and marks it stale.
+
+### 🎨 Readable without color
+> Red for up and green for down (CN convention), with ▲/▼ as well, so direction still reads on terminals without color. Prices use thousands separators, and all three number columns are right-aligned.
+
+---
+
+## ⚡ Quick Start
+
+```bash
+git clone https://github.com/androidZzT/claude-trading-mods.git
+claude --plugin-dir ./claude-trading-mods/mods/market-pane
+```
+
+At 144 columns or wider, the pane opens on the right once the session starts. In a narrower terminal Claude Code doesn't place it automatically; run `/market` to open it.
+
+---
+
+## ⌨️ Commands
+
+| Command | What it does |
+| --- | --- |
+| `/market` | Toggle the pane |
+| `/market add <code> [name]` | Add to the watchlist; adding an existing code renames it |
+| `/market remove <code>` | Remove from the watchlist |
+| `/market list` | List the watchlist |
+
+| Market | Code format | Example |
+| --- | --- | --- |
+| A-shares | `sh` / `sz` / `bj` + 6 digits | `sh600519`, `sz000001` |
+| Hong Kong | `hk` + 5 digits | `hk00700` |
+| US | `us` + ticker | `usAAPL`, `usBRK.B` |
+
+The quote API returns names in GBK, which the mod can't decode, so watchlist rows show the name you give (or the code if you give none).
+
+---
+
+## 🔄 Refresh & Data Sources
+
+| Data | Market open | Market closed |
+| --- | --- | --- |
+| Quotes (open if any market is open) | every 10 s | every 5 min |
+| A-share / HK intraday trend | every 60 s | every 30 min |
+| Sectors (A-share hours) | every 60 s | every 30 min |
+
+- Nothing is requested while the pane is closed.
+- US intraday data isn't available from the API, so the US trend line is sampled from quote refreshes while the pane is open.
+- Trading hours are judged in Beijing time, with US daylight saving handled. Public holidays are not.
+
+All data comes from Tencent Finance's public endpoints (no key). They are unofficial and come with no availability guarantee; when one changes or rate-limits, that part of the pane stays on its last data.
+
+---
+
+## 🛠️ Development
+
+```bash
+cd mods/market-pane
+claude plugin validate .
+claude plugin test .
+npx -p typescript tsc -p .   # load once with --plugin-dir first to generate .claude-plugin/types
+```
+
+Every call that touches `$` (the engine) lives in `hooks/register.tsx`; parsing, trading hours, rendering and watchlist logic are pure modules with their own tests. See [`mods/market-pane/README.md`](mods/market-pane/README.md) for the file map.
+
+Specs and change history are kept with [OpenSpec](openspec/).
