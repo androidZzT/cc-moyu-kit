@@ -6,6 +6,7 @@ context: |
   $.http.fetch 只返回 text（按 UTF-8 解码），GBK 编码的行情接口里的中文字段不可直接使用
   目标是 vibecoding 时低打扰地看行情：不得抢占输入焦点、不得弹窗打断、刷新失败静默降级
   只读行情展示，不涉及下单、账户或任何交易操作
+  $.http.fetch 不信任证书链到 GlobalSign Root R3 的 https 域名（如 web.ifzq.gtimg.cn、proxy.finance.qq.com），失败会被静默降级吞掉、界面只显示无数据；新增接口前先确认证书链到 DigiCert 等受信根，或在会话里实测 fetch
 
 # Project context (optional)
 # Add only constraints that should guide OpenSpec artifacts and workflows.
