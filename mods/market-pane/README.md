@@ -117,6 +117,7 @@ npx -p typescript tsc -p .   # 先用 --plugin-dir 加载一次，生成 .claude
 | `hooks/heatmap-view.tsx` | 板块热力图绘制 |
 | `hooks/kline.ts` | 日 K URL 与解析 |
 | `hooks/game.ts` | 题库、出题、判定、计分 |
+| `hooks/game-props.ts` | 把对局状态转成视图 props：揭晓前不带名称、日期和答案 |
 | `hooks/kline-chart.ts` | K 线字符图布局 |
 | `hooks/game-view.tsx` | 游戏视图绘制 |
 | `hooks/game-surface.tsx` | 游戏的 Client 模块：按键、按钮、逐根揭晓 |

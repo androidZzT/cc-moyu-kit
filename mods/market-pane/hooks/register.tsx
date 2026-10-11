@@ -1,11 +1,11 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
-import type { Feed, GameRound, GameScore, GameState, Quote, Sectors, TrendFeed } from '../types'
+import type { Feed, GameRound, GameState, Quote, Sectors, TrendFeed } from '../types'
 
 import { EMPTY_SCORE, buildPool, makeRound, mulberry32, parseGameMessage, pickItem, sanitizeScore, scoreAfter } from './game'
 import type { GameMessage, PoolItem } from './game'
-import type { GameViewProps } from './game-view'
+import { toViewProps } from './game-props'
 import { buildHeatmap, renderHeatmap } from './heatmap-view'
 import { isMarketOpen, refreshIntervalMs } from './hours'
 import { buildQuoteUrl, movedCodes, parseQuotes } from './parse'
@@ -260,36 +260,6 @@ const dealRound = async ($: EngineInterface): Promise<void> => {
     await update($, gameAtom, (game): GameState => ({ status: 'error', dealt: game.dealt }))
   } finally {
     dealInFlight = false
-  }
-}
-
-/** A candle with its date dropped, so nothing on screen dates the round before it is answered. */
-const undated = (round: GameRound, count: number) =>
-  round.candles.slice(0, count).map(candle => ({ ...candle, date: '' }))
-
-/** The Client's props: visible candles only until a verdict, then the hidden ones, the name and the dates. */
-const toViewProps = (game: GameState, score: GameScore): GameViewProps => {
-  const status = game.status === 'idle' ? 'loading' : game.status
-  const round = game.round
-  if (round === undefined) return { status, score }
-  const verdict = game.verdict?.round === round.id ? game.verdict : undefined
-  if (verdict === undefined) {
-    return { status, score, round: { id: round.id, candles: undated(round, round.visible), visible: round.visible } }
-  }
-  return {
-    status,
-    score,
-    round: { id: round.id, candles: undated(round, round.candles.length), visible: round.visible },
-    reveal: {
-      round: round.id,
-      guess: verdict.guess,
-      isCorrect: verdict.isCorrect,
-      name: round.name,
-      code: round.code,
-      from: round.candles[round.visible - 1]?.date ?? '',
-      to: round.candles.at(-1)?.date ?? '',
-      changePct: round.changePct,
-    },
   }
 }
 
