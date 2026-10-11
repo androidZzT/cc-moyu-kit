@@ -69,6 +69,16 @@ Claude Code 2.1.287 加入了 **Claude Mods**：插件可以开自己的面板�
 
 ## ⚡ 快速开始
 
+在 Claude Code 终端会话里输入：
+
+```
+/plugin install market-pane --marketplace androidZzT/claude-trading-mods
+```
+
+提示添加 marketplace 时按 `y`，再回车装到用户级。装完立即生效，不用重启。
+
+想从源码运行（开发用）：
+
 ```bash
 git clone https://github.com/androidZzT/claude-trading-mods.git
 claude --plugin-dir ./claude-trading-mods/mods/market-pane
@@ -129,3 +139,9 @@ npx -p typescript tsc -p .   # 先用 --plugin-dir 加载一次，生成 .claude
 所有碰 `$`（引擎）的调用都集中在 `hooks/register.tsx`；解析、交易时段、绘制、自选逻辑都是纯函数模块，各有测试。文件说明见 [`mods/market-pane/README.md`](mods/market-pane/README.md)。
 
 需求和变更记录用 [OpenSpec](openspec/) 管理。
+
+---
+
+## 📄 许可证
+
+[MIT](LICENSE)

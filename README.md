@@ -69,6 +69,16 @@ Claude Code 2.1.287 added **Claude Mods**: plugins can now open their own panes,
 
 ## ⚡ Quick Start
 
+In a Claude Code terminal session, type:
+
+```
+/plugin install market-pane --marketplace androidZzT/claude-trading-mods
+```
+
+Answer `y` to add the marketplace, then press Enter to install at user scope. The mod is active right away, no restart needed.
+
+To run from a clone instead (for development):
+
 ```bash
 git clone https://github.com/androidZzT/claude-trading-mods.git
 claude --plugin-dir ./claude-trading-mods/mods/market-pane
@@ -129,3 +139,9 @@ npx -p typescript tsc -p .   # load once with --plugin-dir first to generate .cl
 Every call that touches `$` (the engine) lives in `hooks/register.tsx`; parsing, trading hours, rendering and watchlist logic are pure modules with their own tests. See [`mods/market-pane/README.md`](mods/market-pane/README.md) for the file map.
 
 Specs and change history are kept with [OpenSpec](openspec/).
+
+---
+
+## 📄 License
+
+[MIT](LICENSE)

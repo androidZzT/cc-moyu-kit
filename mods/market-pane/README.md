@@ -34,6 +34,14 @@ A股 ● 盘中
 
 ## 加载
 
+在 Claude Code 终端会话里安装：
+
+```
+/plugin install market-pane --marketplace androidZzT/claude-trading-mods
+```
+
+或者从源码加载：
+
 ```bash
 claude --plugin-dir /path/to/claude_trading_mods/mods/market-pane
 ```
