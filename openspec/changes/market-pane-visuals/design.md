@@ -8,13 +8,14 @@
 - 刷新调度是单一 10 秒 tick + 按交易时段节流（归档 D4），热重载安全。
 - 接口实测（2026-10-09）：
   - 分时 `https://ifzq.gtimg.cn/（原 web.ifzq.gtimg.cn，见 kline-game 变更）appstock/app/minute/query?code=<code>`：UTF-8 JSON，`data.<code>.data.data` 为 `"HHMM price volume amount"` 字符串数组，`data.<code>.data.date` 为 `YYYYMMDD`；**一次只能查一个代码**（多代码返回 `code: -1`）；A股/港股指数与个股可用，美股只返回 1 个点。
-  - 板块：报价接口 `qt.gtimg.cn/q=` 直接支持板块代码（如 `pt02003891` 芯片概念），字段与个股相同（[3] 现价、[4] 昨收），名称同样是 GBK，显示名用固定配置。分时接口也支持板块代码，但色块不画走势线，不拉。最初方案用排行接口 `proxy.finance.qq.com/.../getRank` 取申万二级行业涨跌前后各 6，后改概念板块，最终按用户要求改为固定 5 个关注板块，排行接口（只能走 http）不再使用。
+  - 板块：报价接口 `qt.gtimg.cn/q=` 直接支持板块代码（如 `pt02003891` 芯片概念），字段与个股相同（[3] 现价、[4] 昨收），名称同样是 GBK，显示名用固定配置。分时接口也支持板块代码，但板块块不画走势线，不拉。最初方案用排行接口 `proxy.finance.qq.com/.../getRank` 取申万二级行业涨跌前后各 6，后改概念板块，最终按用户要求改为固定 5 个关注板块，排行接口不再使用。
+  - 成分股榜单 `http://proxy.finance.qq.com/cgi/cgi-bin/rank/hs/getBoardRankList?board_code=<板块代码>&sort_type=priceRatio&direct=down|up&offset=0&count=6`：UTF-8 JSON，`data.rank_list[]` 含 `code`、`name`、`zdf`；`direct=down` 为涨幅榜，`up` 为跌幅榜。https 证书链到 GlobalSign R3，宿主不信任，只能走 http（公开只读数据，仅用于展示）。概念板块成分股多（芯片概念 645 只），榜首常是涨停的边缘股；跌幅榜常混 ST，每侧取 6 条、剔除名称含 ST 的后取前 3。
 
 ## Goals / Non-Goals
 
 **Goals:**
 - 新增的解析、重采样、着色分档全部是纯函数，可脱离引擎单测
-- 继续只用一个 10 秒 tick，报价（含板块）与分时各自节流
+- 继续只用一个 10 秒 tick，报价（含板块涨跌幅）、分时、成分股榜单各自节流
 - 任何一类数据失败都不影响其他两类
 
 **Non-Goals:**
@@ -29,18 +30,18 @@
 ```
 hooks/trend.ts        # 分时 JSON 解析、美股采样追加/按日清空、序列重采样、sparkline 字符映射
 hooks/boards.ts       # 关注板块配置（代码 + 显示名）
-hooks/sector.ts       # 色块分档、涨跌幅格式
+hooks/movers.ts       # 成分股榜单 URL、解析、剔除 ST
 hooks/bars.ts         # 涨跌幅条形（1/8 格精度）
 hooks/view.tsx        # 指数/自选两行布局、状态灯、分隔线、跳动高亮
-hooks/heatmap-view.tsx# 板块色块网格
+hooks/boards-view.tsx # 板块块：标题 + 涨跌前三两列
 hooks/register.tsx    # 新增分时/板块拉取与节流、跳动计算、新 atom
 ```
-- 理由：遵守 validate 的同文件规则；view.tsx 加上热力图会超过 250 行，拆出 `heatmap-view.tsx` 保持单文件聚焦。register.tsx 预计约 260 行，仍在 400 行以内。
+- 理由：遵守 validate 的同文件规则；view.tsx 加上板块会超过 250 行，拆出 `boards-view.tsx` 保持单文件聚焦。register.tsx 预计约 260 行，仍在 400 行以内。
 - 备选：把分时/板块拉取放进各自模块并把 `$` 传进去——validate 不允许。
 
 ### D2 调度：沿用单 tick，三类数据独立节流
-- tick 中依次判断：报价（现有逻辑不变）→ 分时（按市场：盘中 60s、休市 30min）。板块代码并在报价请求里，不单独节流。各自记录 `lastFetchAt`，各自 `inFlight` 防重入。
-- 面板打开 / 新增自选时：报价照旧立即刷新；分时只补拉"尚无序列"的标的。
+- tick 中依次判断：报价（现有逻辑不变）→ 分时（按市场：盘中 60s、休市 30min）→ 成分股榜单（按 A股：盘中 60s、休市 30min）。板块涨跌幅并在报价请求里。各自记录 `lastFetchAt`，各自 `inFlight` 防重入。
+- 面板打开 / 新增自选时：报价照旧立即刷新；分时只补拉"尚无序列"的标的；成分股榜单只补拉尚无榜单的板块。
 - 备选：为分时另开一个 `$.clock.every`——多个 timer 在热重载时更难保证不重复，收益不大。
 
 ### D3 分时请求并发上限 5
@@ -67,16 +68,17 @@ hooks/register.tsx    # 新增分时/板块拉取与节流、跳动计算、新 
 - 首次拿到数据时没有旧价，不高亮。
 - 用 `inverse` 实现反色，不依赖具体颜色，浅色/深色终端都可读。
 
-### D8 热力图配色
-- 背景色用十六进制两档：上涨深 `#c62828` / 浅 `#5c1f1f`，下跌深 `#2e7d32` / 浅 `#1f3d22`；文字白色。阈值 `|zdf| >= 3%` 为深色。
-- 每个色块宽 = `floor(bodyColumns / 3)`，内容为「名称（可截断）+ 右对齐涨跌幅」，涨跌幅保留 1 位小数并带符号。
-- 备选：用 ANSI 基础色 `red/green` + `dimColor` 区分深浅——不同终端主题下 dim 背景的效果不一致，不如固定 hex 可控。
+### D8 板块块布局与配色
+- 每块一行标题（显示名 + 板块涨跌幅，`▲/▼` 两位小数）加 3 行成分股；成分股两列各宽 `floor((bodyColumns - 1) / 2)`，内容为「名称（可截断）+ 右对齐涨跌幅」，涨跌幅保留 1 位小数并带符号。
+- 着色沿用面板红涨绿跌的前景色，不用背景色块。
+- 最初是 3 列背景色块热力图（`#c62828/#5c1f1f/#2e7d32/#1f3d22` 两档），改为展示成分股后一行放不下多个板块，去掉色块。
 
 ### D9 状态契约新增
 在 `types/index.d.ts` 的 `PluginState['market-pane']` 下新增（全部用 `update` 返回新对象）：
 - `trends: Record<code, number[]>`：每个标的的当日价格序列
 - `trendFeed: { cnAt?: number; hkAt?: number; usDay?: string }`：分时上次拉取时间、美股采样所属交易日
-- 板块不单独存状态，色块从 `quotes` 中按板块代码取；`SectorCell = { name, pct? }`（`pct` 缺省表示该板块无行情）
+- 板块涨跌幅不单独存状态，从 `quotes` 中按板块代码取
+- `movers: Record<板块代码, { gainers: Mover[]; losers: Mover[] }>`、`moversFeed: { lastFetchAt?; lastOkAt? }`，`Mover = { code, name, pct }`
 - `flash: string[]`：本轮需要高亮的代码
 - 报价 `quotes` 本身保留上一轮数据，跳动比较直接用写入前的 `quotes`，不另存一份
 

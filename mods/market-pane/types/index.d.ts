@@ -24,8 +24,12 @@ export type TrendFeed = {
   usDay?: string
 }
 
-/** One watched board's cell; `pct` is absent while the board has no quote. */
-export type SectorCell = { name: string; pct?: number }
+/** One stock in a board's gainers or losers ranking. */
+export type Mover = { code: string; name: string; pct: number }
+
+export type BoardMovers = { gainers: Mover[]; losers: Mover[] }
+
+export type MoversFeed = { lastFetchAt?: number; lastOkAt?: number }
 
 /** One daily candle, prices forward-adjusted (前复权). */
 export type Candle = { date: string; open: number; close: number; high: number; low: number }
@@ -68,6 +72,9 @@ declare module 'claude-code' {
       trends: Record<string, number[]>
       trendFeed: TrendFeed
       flash: string[]
+      /** Each watched board's top gainers and losers, by board code. */
+      movers: Record<string, BoardMovers>
+      moversFeed: MoversFeed
       mode: PaneMode
       game: GameState
       score: GameScore

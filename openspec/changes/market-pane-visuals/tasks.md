@@ -24,6 +24,7 @@
 - [x] 4.2 新增 `hooks/heatmap-view.tsx`：「板块」分组标题与状态灯、3 列 × 4 行色块（hex 背景两档、名称截断、涨跌幅一位小数带符号）、无数据时暗色「板块数据暂不可用」；挂载测试在 40 列面板断言 12 个色块、顺序和占位文本，且不超出面板宽度
 - [x] 4.3 更新 `mods/market-pane/README.md`：新增两行布局、走势线来源（美股为面板打开期间采样）、板块热力图、新增的两个数据源声明，按 README 描述核对面板实际表现
 - [x] 4.4 板块改为固定关注的 5 个板块（芯片概念、人工智能、机器人概念、券商概念、创新药）：新增 `hooks/boards.ts` 配置；板块代码并入报价请求；热力图按配置顺序由报价生成色块，单个缺失显示 `--`、全无显示占位；删除排行接口拉取、`sectors` 状态及相关测试；fixture 加入实测板块报价行；更新 README
+- [x] 4.5 板块块展开成分股：新增 `hooks/movers.ts`（榜单 URL、解析、剔除 ST，实测 fixture）；`register.tsx` 新增榜单拉取（10 请求、按 A股时段节流、面板打开补拉、单板块失败保留旧值）与 `movers`/`moversFeed` 状态；`heatmap-view.tsx` 换成 `boards-view.tsx`（标题 + 3 行左涨右跌，去掉色块和 `sector.ts`）；测试覆盖 watched-boards spec 各场景；更新 README
 
 ## 5. 集成验证
 

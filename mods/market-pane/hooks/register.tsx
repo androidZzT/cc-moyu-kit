@@ -1,17 +1,18 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
-import type { Feed, GameRound, GameState, Quote, TrendFeed } from '../types'
+import type { BoardMovers, Feed, GameRound, GameState, MoversFeed, Quote, TrendFeed } from '../types'
 
 import { EMPTY_SCORE, buildPool, makeRound, mulberry32, parseGameMessage, pickItem, sanitizeScore, scoreAfter } from './game'
 import type { GameMessage, PoolItem } from './game'
 import { toViewProps } from './game-props'
 import { BOARDS } from './boards'
-import { buildHeatmap, renderHeatmap } from './heatmap-view'
+import { buildBoards, renderBoards } from './boards-view'
 import { isMarketOpen, refreshIntervalMs } from './hours'
 import { buildQuoteUrl, movedCodes, parseQuotes } from './parse'
 import { INDICES, marketOf } from './symbols'
 import { buildKlineUrl, parseKline } from './kline'
+import { buildMoversUrl, parseMovers } from './movers'
 import { buildMinuteUrl, parseMinute, sampleUs } from './trend'
 import { buildSections, buildStatus, renderPane } from './view'
 import { addItem, formatList, parseCommand, removeItem, sanitizeStored } from './watchlist'
@@ -43,12 +44,15 @@ const watchlistAtom = atom({ plugin: 'market-pane', key: 'watchlist' } as const,
 const trendsAtom = atom({ plugin: 'market-pane', key: 'trends' } as const, {})
 const trendFeedAtom = atom({ plugin: 'market-pane', key: 'trendFeed' } as const, {})
 const flashAtom = atom({ plugin: 'market-pane', key: 'flash' } as const, [])
+const moversAtom = atom({ plugin: 'market-pane', key: 'movers' } as const, {})
+const moversFeedAtom = atom({ plugin: 'market-pane', key: 'moversFeed' } as const, {})
 const modeAtom = atom({ plugin: 'market-pane', key: 'mode' } as const, 'market')
 const gameAtom = atom({ plugin: 'market-pane', key: 'game' } as const, { status: 'idle', dealt: 0 })
 const scoreAtom = atom({ plugin: 'market-pane', key: 'score' } as const, EMPTY_SCORE)
 
 let inFlight = false
 let trendsInFlight = false
+let moversInFlight = false
 let dealInFlight = false
 
 const isPaneActive = async ($: EngineInterface): Promise<boolean> =>
@@ -162,6 +166,44 @@ const refreshTrends = async ($: EngineInterface, fillMissing: boolean): Promise<
   }
 }
 
+/** One board's gainers and losers, or undefined when either side fails, so its old movers stay. */
+const fetchBoardMovers = async ($: EngineInterface, board: string): Promise<readonly [string, BoardMovers] | undefined> => {
+  try {
+    const [gainers, losers] = await Promise.all([
+      fetchWithTimeout($, buildMoversUrl(board, 'gainers')).then(parseMovers),
+      fetchWithTimeout($, buildMoversUrl(board, 'losers')).then(parseMovers),
+    ])
+    return [board, { gainers, losers }]
+  } catch {
+    return undefined
+  }
+}
+
+/**
+ * Refreshes every watched board's movers when the A股 interval has elapsed, or
+ * at once with `fillMissing` while some board has none yet. A board that fails
+ * keeps its last movers.
+ */
+const refreshMovers = async ($: EngineInterface, fillMissing: boolean): Promise<void> => {
+  if (moversInFlight) return
+  const now = await $.clock.now()
+  const { lastFetchAt } = await read($, moversFeedAtom)
+  const movers = await read($, moversAtom)
+  const isMissing = BOARDS.some(board => movers[board.code] === undefined)
+  if (!isDue(lastFetchAt, slowIntervalMs('cn', now), now) && !(fillMissing && isMissing)) return
+  moversInFlight = true
+  try {
+    await update($, moversFeedAtom, (feed): MoversFeed => ({ ...feed, lastFetchAt: now }))
+    const results = await Promise.all(BOARDS.map(board => fetchBoardMovers($, board.code)))
+    const fetched = results.filter(result => result !== undefined)
+    if (fetched.length === 0) return
+    await update($, moversAtom, (current): Record<string, BoardMovers> => ({ ...current, ...Object.fromEntries(fetched) }))
+    await update($, moversFeedAtom, (feed): MoversFeed => ({ ...feed, lastOkAt: now }))
+  } finally {
+    moversInFlight = false
+  }
+}
+
 /** Runs a background task; a failure is recorded on the feed instead of surfacing to the person. */
 const runInBackground = ($: EngineInterface, task: Promise<void>): void => {
   task.catch(async (error: unknown) => {
@@ -180,12 +222,14 @@ const tick = async ($: EngineInterface): Promise<void> => {
     await refresh($)
   }
   await refreshTrends($, false)
+  await refreshMovers($, false)
 }
 
-/** Everything the pane shows, fetched now: quotes (boards included), plus intraday series that are due or missing. */
+/** Everything the pane shows, fetched now: quotes (boards included), plus intraday series and board movers that are due or missing. */
 const refreshOnOpen = ($: EngineInterface): void => {
   runInBackground($, refresh($))
   runInBackground($, refreshTrends($, true))
+  runInBackground($, refreshMovers($, true))
 }
 
 // ── K 线猜涨跌 ──────────────────────────────────────────────────────────────
@@ -349,12 +393,12 @@ export const register: Register = on => {
     const extras = { trends: await read($, trendsAtom), flash: await read($, flashAtom) }
     const sections = buildSections(await read($, quotesAtom), await read($, watchlistAtom), now, extras)
     const columns = e.props.bodyColumns
-    const heatmap = renderHeatmap(elements, buildHeatmap(await read($, quotesAtom), isMarketOpen('cn', now)), columns)
+    const boards = buildBoards(await read($, quotesAtom), await read($, moversAtom), isMarketOpen('cn', now))
     const isAllClosed = !ALL_MARKETS.some(market => isMarketOpen(market, now))
     const { Box, Text } = elements
     const tail = (
       <Box key="tail" flexDirection="column">
-        {heatmap}
+        {renderBoards(elements, boards, columns)}
         {isAllClosed && (
           <Box key="closed-hint" marginTop={1}>
             <Text dimColor>{CLOSED_HINT}</Text>

@@ -4,6 +4,7 @@ import type { Engine } from 'claude-code/testing'
 
 import { SAMPLE_BODY } from './fixture'
 import { BOARDS_BODY } from './board-fixture'
+import { MOVERS_BODIES } from './movers-fixture'
 import { MINUTE_BODY } from './trend-fixture'
 
 export type HttpReply = { status: number; text: string } | Error
@@ -14,6 +15,8 @@ export type StateKey =
   | 'watchlist'
   | 'trends'
   | 'trendFeed'
+  | 'movers'
+  | 'moversFeed'
   | 'flash'
   | 'mode'
   | 'game'
@@ -48,10 +51,12 @@ export const setupWorld = (on: On, options: { now: number; store?: Record<string
     stored.set(e.key, e.value)
     return { value: undefined } as never
   })
-  // quote, minute and kline requests are recorded and answered separately
+  // quote, minute, kline and board-mover requests are recorded and answered separately
   const requests: string[] = []
   const minuteRequests: string[] = []
   const klineRequests: string[] = []
+  const moversRequests: string[] = []
+  const moversReplies = new Map<string, HttpReply>()
   let klineReply: HttpReply | undefined
   // the default quote reply answers the indices and the five watched boards
   let reply: HttpReply = ok(SAMPLE_BODY + BOARDS_BODY)
@@ -72,6 +77,13 @@ export const setupWorld = (on: On, options: { now: number; store?: Record<string
       minuteRequests.push(url)
       const code = /[?&]code=([^&]*)/.exec(url)?.[1] ?? ''
       return minuteReplies.get(code) ?? ok(minuteBodyFor(code))
+    }
+    if (url.includes('/getBoardRankList')) {
+      moversRequests.push(url)
+      const board = /board_code=([^&]*)/.exec(url)?.[1] ?? ''
+      const side = url.includes('direct=up') ? 'up' : 'down'
+      const body = MOVERS_BODIES[board]?.[side]
+      return moversReplies.get(board) ?? (body === undefined ? { status: 404, text: '' } : ok(body))
     }
     if (url.includes('/fqkline/')) {
       klineRequests.push(url)
@@ -103,6 +115,7 @@ export const setupWorld = (on: On, options: { now: number; store?: Record<string
     requests,
     minuteRequests,
     klineRequests,
+    moversRequests,
     panes,
     stored: (key: string): unknown => stored.get(key),
     read: <T>(key: StateKey): T => state.get(key) as T,
@@ -111,6 +124,10 @@ export const setupWorld = (on: On, options: { now: number; store?: Record<string
     },
     setMinuteReply: (code: string, next: HttpReply) => {
       minuteReplies.set(code, next)
+    },
+    /** Answers both sides of one board's mover ranking with `next` from now on. */
+    setMoversReply: (board: string, next: HttpReply) => {
+      moversReplies.set(board, next)
     },
     setKlineReply: (next: HttpReply | undefined) => {
       klineReply = next
