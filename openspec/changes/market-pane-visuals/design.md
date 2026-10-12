@@ -8,27 +8,28 @@
 - 刷新调度是单一 10 秒 tick + 按交易时段节流（归档 D4），热重载安全。
 - 接口实测（2026-10-09）：
   - 分时 `https://ifzq.gtimg.cn/（原 web.ifzq.gtimg.cn，见 kline-game 变更）appstock/app/minute/query?code=<code>`：UTF-8 JSON，`data.<code>.data.data` 为 `"HHMM price volume amount"` 字符串数组，`data.<code>.data.date` 为 `YYYYMMDD`；**一次只能查一个代码**（多代码返回 `code: -1`）；A股/港股指数与个股可用，美股只返回 1 个点。
-  - 板块 `http://proxy.finance.qq.com/（https 证书宿主不信任，见 kline-game 变更）cgi/cgi-bin/rank/pt/getRank?board_type=hy2&sort_type=PriceRatio&direct=down|up&offset=0&count=6`：UTF-8 JSON，`data.rank_list[]` 含 `name`、`zdf`（涨跌幅字符串，如 `"7.87"`）、`code`；`direct=down` 为涨幅榜（降序），`direct=up` 为跌幅榜；`hy2` 共 124 个行业（申万二级），名称最长 7 个字。
+  - 板块：报价接口 `qt.gtimg.cn/q=` 直接支持板块代码（如 `pt02003891` 芯片概念），字段与个股相同（[3] 现价、[4] 昨收），名称同样是 GBK，显示名用固定配置。分时接口也支持板块代码，但色块不画走势线，不拉。最初方案用排行接口 `proxy.finance.qq.com/.../getRank` 取申万二级行业涨跌前后各 6，后改概念板块，最终按用户要求改为固定 5 个关注板块，排行接口（只能走 http）不再使用。
 
 ## Goals / Non-Goals
 
 **Goals:**
 - 新增的解析、重采样、着色分档全部是纯函数，可脱离引擎单测
-- 继续只用一个 10 秒 tick，三类数据（报价、分时、板块）各自节流
+- 继续只用一个 10 秒 tick，报价（含板块）与分时各自节流
 - 任何一类数据失败都不影响其他两类
 
 **Non-Goals:**
 - 美股真实分时（接口不提供；不引入第三个数据源）
 - 成交量、K 线、盘口
-- 板块下钻（点板块看成分股）、概念板块、港美股板块
-- 可配置条形满格比例、配色、板块数量
+- 板块下钻（点板块看成分股）、用命令增删关注板块、港美股板块
+- 可配置条形满格比例、配色
 
 ## Decisions
 
 ### D1 文件拆分：新增纯模块，`$` 仍只在 register.tsx
 ```
 hooks/trend.ts        # 分时 JSON 解析、美股采样追加/按日清空、序列重采样、sparkline 字符映射
-hooks/sector.ts       # 板块 JSON 解析、涨跌榜合并、色块分档
+hooks/boards.ts       # 关注板块配置（代码 + 显示名）
+hooks/sector.ts       # 色块分档、涨跌幅格式
 hooks/bars.ts         # 涨跌幅条形（1/8 格精度）
 hooks/view.tsx        # 指数/自选两行布局、状态灯、分隔线、跳动高亮
 hooks/heatmap-view.tsx# 板块色块网格
@@ -38,9 +39,9 @@ hooks/register.tsx    # 新增分时/板块拉取与节流、跳动计算、新 
 - 备选：把分时/板块拉取放进各自模块并把 `$` 传进去——validate 不允许。
 
 ### D2 调度：沿用单 tick，三类数据独立节流
-- tick 中依次判断：报价（现有逻辑不变）→ 分时（按市场：盘中 60s、休市 30min）→ 板块（按 A股：盘中 60s、休市 30min）。各自记录 `lastFetchAt`，各自 `inFlight` 防重入。
-- 面板打开 / 新增自选时：报价照旧立即刷新；分时只补拉"尚无序列"的标的；板块无数据时立即拉。
-- 备选：为分时、板块各开一个 `$.clock.every`——多个 timer 在热重载时更难保证不重复，收益不大。
+- tick 中依次判断：报价（现有逻辑不变）→ 分时（按市场：盘中 60s、休市 30min）。板块代码并在报价请求里，不单独节流。各自记录 `lastFetchAt`，各自 `inFlight` 防重入。
+- 面板打开 / 新增自选时：报价照旧立即刷新；分时只补拉"尚无序列"的标的。
+- 备选：为分时另开一个 `$.clock.every`——多个 timer 在热重载时更难保证不重复，收益不大。
 
 ### D3 分时请求并发上限 5
 - 一次只能查一个代码，最多 25 个（5 个指数 + 20 个自选里的 A股/港股）。分批并发、每批 5 个，避免一次性打出 25 个请求。
@@ -75,7 +76,7 @@ hooks/register.tsx    # 新增分时/板块拉取与节流、跳动计算、新 
 在 `types/index.d.ts` 的 `PluginState['market-pane']` 下新增（全部用 `update` 返回新对象）：
 - `trends: Record<code, number[]>`：每个标的的当日价格序列
 - `trendFeed: { cnAt?: number; hkAt?: number; usDay?: string }`：分时上次拉取时间、美股采样所属交易日
-- `sectors: { gainers: SectorCell[]; losers: SectorCell[]; lastFetchAt?: number; lastOkAt?: number }`，`SectorCell = { name, pct }`
+- 板块不单独存状态，色块从 `quotes` 中按板块代码取；`SectorCell = { name, pct? }`（`pct` 缺省表示该板块无行情）
 - `flash: string[]`：本轮需要高亮的代码
 - 报价 `quotes` 本身保留上一轮数据，跳动比较直接用写入前的 `quotes`，不另存一份
 

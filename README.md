@@ -46,8 +46,8 @@ Claude Code 2.1.287 added **Claude Mods**: plugins can now open their own panes,
 ### 〰️ Intraday trend line
 > Each symbol gets a second row with today's sparkline, scaled to its own high and low, plus a bar sized by the percent change (1 cell = 1%, 1/8-cell precision, full at ±4%).
 
-### 🟥 Sector heatmap
-> Top 6 gainers and top 6 losers among Shenwan level-2 industries. Darker cells mean moves of 3% or more.
+### 🟥 Watched boards
+> Color cells for five A-share boards: semiconductors (chip concept), AI, robotics, brokers and innovative drugs. Darker cells mean moves of 3% or more. Edit `mods/market-pane/hooks/boards.ts` to watch other boards.
 
 ### ⚡ Tick highlight
 > A price that moved since the last refresh is shown in reverse video for one refresh cycle.
@@ -114,9 +114,8 @@ The quote API returns names in GBK, which the mod can't decode, so watchlist row
 
 | Data | Market open | Market closed |
 | --- | --- | --- |
-| Quotes (open if any market is open) | every 10 s | every 5 min |
+| Quotes and watched boards (open if any market is open) | every 10 s | every 5 min |
 | A-share / HK intraday trend | every 60 s | every 30 min |
-| Sectors (A-share hours) | every 60 s | every 30 min |
 
 - Nothing is requested while the pane is closed.
 - The game fetches one symbol's daily candles per round (320 days, forward-adjusted), only when a round is dealt.

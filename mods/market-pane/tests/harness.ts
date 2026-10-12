@@ -3,7 +3,7 @@ import type { On } from 'claude-code'
 import type { Engine } from 'claude-code/testing'
 
 import { SAMPLE_BODY } from './fixture'
-import { GAINERS_BODY, LOSERS_BODY } from './sector-fixture'
+import { BOARDS_BODY } from './board-fixture'
 import { MINUTE_BODY } from './trend-fixture'
 
 export type HttpReply = { status: number; text: string } | Error
@@ -14,7 +14,6 @@ export type StateKey =
   | 'watchlist'
   | 'trends'
   | 'trendFeed'
-  | 'sectors'
   | 'flash'
   | 'mode'
   | 'game'
@@ -49,15 +48,14 @@ export const setupWorld = (on: On, options: { now: number; store?: Record<string
     stored.set(e.key, e.value)
     return { value: undefined } as never
   })
-  // quote, minute and sector requests are recorded and answered separately
+  // quote, minute and kline requests are recorded and answered separately
   const requests: string[] = []
   const minuteRequests: string[] = []
-  const sectorRequests: string[] = []
   const klineRequests: string[] = []
   let klineReply: HttpReply | undefined
-  let reply: HttpReply = ok(SAMPLE_BODY)
+  // the default quote reply answers the indices and the five watched boards
+  let reply: HttpReply = ok(SAMPLE_BODY + BOARDS_BODY)
   const minuteReplies = new Map<string, HttpReply>()
-  let sectorReply: HttpReply | undefined
   const panes = new Map<string, string>()
   const state = new Map<string, unknown>()
 
@@ -79,10 +77,6 @@ export const setupWorld = (on: On, options: { now: number; store?: Record<string
       klineRequests.push(url)
       const code = /param=([^,]*)/.exec(url)?.[1] ?? ''
       return klineReply ?? ok(klineBodyFor(code))
-    }
-    if (url.includes('/rank/')) {
-      sectorRequests.push(url)
-      return sectorReply ?? ok(url.includes('direct=down') ? GAINERS_BODY : LOSERS_BODY)
     }
     requests.push(url)
     return reply
@@ -108,7 +102,6 @@ export const setupWorld = (on: On, options: { now: number; store?: Record<string
     clock,
     requests,
     minuteRequests,
-    sectorRequests,
     klineRequests,
     panes,
     stored: (key: string): unknown => stored.get(key),
@@ -118,9 +111,6 @@ export const setupWorld = (on: On, options: { now: number; store?: Record<string
     },
     setMinuteReply: (code: string, next: HttpReply) => {
       minuteReplies.set(code, next)
-    },
-    setSectorReply: (next: HttpReply | undefined) => {
-      sectorReply = next
     },
     setKlineReply: (next: HttpReply | undefined) => {
       klineReply = next

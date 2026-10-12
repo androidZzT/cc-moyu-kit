@@ -1,15 +1,15 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register } from 'claude-code'
 
-import type { Feed, GameRound, GameState, Quote, Sectors, TrendFeed } from '../types'
+import type { Feed, GameRound, GameState, Quote, TrendFeed } from '../types'
 
 import { EMPTY_SCORE, buildPool, makeRound, mulberry32, parseGameMessage, pickItem, sanitizeScore, scoreAfter } from './game'
 import type { GameMessage, PoolItem } from './game'
 import { toViewProps } from './game-props'
+import { BOARDS } from './boards'
 import { buildHeatmap, renderHeatmap } from './heatmap-view'
 import { isMarketOpen, refreshIntervalMs } from './hours'
 import { buildQuoteUrl, movedCodes, parseQuotes } from './parse'
-import { buildSectorUrl, parseSectorRank } from './sector'
 import { INDICES, marketOf } from './symbols'
 import { buildKlineUrl, parseKline } from './kline'
 import { buildMinuteUrl, parseMinute, sampleUs } from './trend'
@@ -42,7 +42,6 @@ const feedAtom = atom({ plugin: 'market-pane', key: 'feed' } as const, { status:
 const watchlistAtom = atom({ plugin: 'market-pane', key: 'watchlist' } as const, [])
 const trendsAtom = atom({ plugin: 'market-pane', key: 'trends' } as const, {})
 const trendFeedAtom = atom({ plugin: 'market-pane', key: 'trendFeed' } as const, {})
-const sectorsAtom = atom({ plugin: 'market-pane', key: 'sectors' } as const, { gainers: [], losers: [] })
 const flashAtom = atom({ plugin: 'market-pane', key: 'flash' } as const, [])
 const modeAtom = atom({ plugin: 'market-pane', key: 'mode' } as const, 'market')
 const gameAtom = atom({ plugin: 'market-pane', key: 'game' } as const, { status: 'idle', dealt: 0 })
@@ -50,7 +49,6 @@ const scoreAtom = atom({ plugin: 'market-pane', key: 'score' } as const, EMPTY_S
 
 let inFlight = false
 let trendsInFlight = false
-let sectorsInFlight = false
 let dealInFlight = false
 
 const isPaneActive = async ($: EngineInterface): Promise<boolean> =>
@@ -81,13 +79,13 @@ const recordUsSamples = async (
   await update($, trendFeedAtom, (feed): TrendFeed => ({ ...feed, usDay: sampled.usDay }))
 }
 
-/** Fetches every index and watchlist quote in one request; on failure keeps the old quotes and marks them stale. */
+/** Fetches every index, watchlist and watched-board quote in one request; on failure keeps the old quotes and marks them stale. */
 const refresh = async ($: EngineInterface): Promise<void> => {
   if (inFlight) return
   inFlight = true
   try {
     const watchlist = await read($, watchlistAtom)
-    const codes = [...INDICES.map(index => index.code), ...watchlist.map(item => item.code)]
+    const codes = [...INDICES.map(index => index.code), ...watchlist.map(item => item.code), ...BOARDS.map(board => board.code)]
     const startedAt = await $.clock.now()
     await update($, feedAtom, feed => ({ ...feed, lastFetchAt: startedAt }))
     try {
@@ -164,32 +162,6 @@ const refreshTrends = async ($: EngineInterface, fillMissing: boolean): Promise<
   }
 }
 
-/**
- * Refreshes the A股 industry ranking when its interval has elapsed, or at once
- * with `fillMissing` while none has arrived yet. Both sides must arrive;
- * otherwise the last ranking stays.
- */
-const refreshSectors = async ($: EngineInterface, fillMissing: boolean): Promise<void> => {
-  if (sectorsInFlight) return
-  const now = await $.clock.now()
-  const { lastFetchAt, lastOkAt } = await read($, sectorsAtom)
-  const isWanted = isDue(lastFetchAt, slowIntervalMs('cn', now), now) || (fillMissing && lastOkAt === undefined)
-  if (!isWanted) return
-  sectorsInFlight = true
-  try {
-    await update($, sectorsAtom, (sectors): Sectors => ({ ...sectors, lastFetchAt: now }))
-    const [gainers, losers] = await Promise.all([
-      fetchWithTimeout($, buildSectorUrl('gainers')).then(parseSectorRank),
-      fetchWithTimeout($, buildSectorUrl('losers')).then(parseSectorRank),
-    ])
-    await update($, sectorsAtom, (sectors): Sectors => ({ ...sectors, gainers, losers, lastOkAt: now }))
-  } catch {
-    // keep the last ranking; the next interval retries
-  } finally {
-    sectorsInFlight = false
-  }
-}
-
 /** Runs a background task; a failure is recorded on the feed instead of surfacing to the person. */
 const runInBackground = ($: EngineInterface, task: Promise<void>): void => {
   task.catch(async (error: unknown) => {
@@ -208,14 +180,12 @@ const tick = async ($: EngineInterface): Promise<void> => {
     await refresh($)
   }
   await refreshTrends($, false)
-  await refreshSectors($, false)
 }
 
-/** Everything the pane shows, fetched now: quotes, plus intraday series and sectors that are due or missing. */
+/** Everything the pane shows, fetched now: quotes (boards included), plus intraday series that are due or missing. */
 const refreshOnOpen = ($: EngineInterface): void => {
   runInBackground($, refresh($))
   runInBackground($, refreshTrends($, true))
-  runInBackground($, refreshSectors($, true))
 }
 
 // ── K 线猜涨跌 ──────────────────────────────────────────────────────────────
@@ -379,7 +349,7 @@ export const register: Register = on => {
     const extras = { trends: await read($, trendsAtom), flash: await read($, flashAtom) }
     const sections = buildSections(await read($, quotesAtom), await read($, watchlistAtom), now, extras)
     const columns = e.props.bodyColumns
-    const heatmap = renderHeatmap(elements, buildHeatmap(await read($, sectorsAtom), isMarketOpen('cn', now)), columns)
+    const heatmap = renderHeatmap(elements, buildHeatmap(await read($, quotesAtom), isMarketOpen('cn', now)), columns)
     const isAllClosed = !ALL_MARKETS.some(market => isMarketOpen(market, now))
     const { Box, Text } = elements
     const tail = (

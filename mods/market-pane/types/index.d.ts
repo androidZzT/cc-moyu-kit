@@ -24,14 +24,8 @@ export type TrendFeed = {
   usDay?: string
 }
 
-export type SectorCell = { name: string; pct: number }
-
-export type Sectors = {
-  gainers: SectorCell[]
-  losers: SectorCell[]
-  lastFetchAt?: number
-  lastOkAt?: number
-}
+/** One watched board's cell; `pct` is absent while the board has no quote. */
+export type SectorCell = { name: string; pct?: number }
 
 /** One daily candle, prices forward-adjusted (前复权). */
 export type Candle = { date: string; open: number; close: number; high: number; low: number }
@@ -73,7 +67,6 @@ declare module 'claude-code' {
       watchlist: WatchItem[]
       trends: Record<string, number[]>
       trendFeed: TrendFeed
-      sectors: Sectors
       flash: string[]
       mode: PaneMode
       game: GameState

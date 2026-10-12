@@ -1,7 +1,8 @@
 import type { RenderElement } from 'claude-code'
 
-import type { SectorCell, Sectors } from '../types'
-import { formatSectorPct, heatTier, orderCells } from './sector'
+import type { Quote, SectorCell } from '../types'
+import { BOARDS } from './boards'
+import { formatSectorPct, heatTier } from './sector'
 import type { HeatTier } from './sector'
 import { renderHeader, renderRule } from './view'
 import type { PaneElements } from './view'
@@ -23,10 +24,16 @@ const TIER_BACKGROUND: Readonly<Record<HeatTier, string | undefined>> = {
 
 export type Heatmap = { cells: SectorCell[]; isOpen: boolean }
 
-export const buildHeatmap = (sectors: Sectors, isOpen: boolean): Heatmap => ({
-  cells: orderCells(sectors.gainers, sectors.losers),
-  isOpen,
-})
+const MISSING_PCT_TEXT = '--'
+
+/** A cell per watched board in BOARDS order; none until at least one board has been quoted. */
+export const buildHeatmap = (quotes: Readonly<Record<string, Quote>>, isOpen: boolean): Heatmap => {
+  const cells = BOARDS.map(({ code, name }): SectorCell => {
+    const quote = quotes[code]
+    return quote === undefined || quote.isMissing ? { name } : { name, pct: quote.pct }
+  })
+  return { cells: cells.some(cell => cell.pct !== undefined) ? cells : [], isOpen }
+}
 
 /** Cells per row of HEATMAP_COLUMNS, keeping the given order. */
 const toRows = (cells: readonly SectorCell[]): SectorCell[][] =>
@@ -35,7 +42,7 @@ const toRows = (cells: readonly SectorCell[]): SectorCell[][] =>
   )
 
 const renderCell = ({ Box, Text }: PaneElements, cell: SectorCell, index: number, width: number): RenderElement => {
-  const background = TIER_BACKGROUND[heatTier(cell.pct)]
+  const background = cell.pct === undefined ? undefined : TIER_BACKGROUND[heatTier(cell.pct)]
   const color = background === undefined ? undefined : CELL_TEXT_COLOR
   return (
     <Box
@@ -50,7 +57,7 @@ const renderCell = ({ Box, Text }: PaneElements, cell: SectorCell, index: number
         {cell.name}
       </Text>
       <Box key="pct" flexShrink={0}>
-        <Text color={color}>{formatSectorPct(cell.pct)}</Text>
+        <Text color={color}>{cell.pct === undefined ? MISSING_PCT_TEXT : formatSectorPct(cell.pct)}</Text>
       </Box>
     </Box>
   )
