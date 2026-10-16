@@ -85,6 +85,8 @@ type Run = Readonly<{
   displayPath?: string
   /** The previous segment's directory, removed once the new segment's first frame is on screen. */
   prevSegDir?: string
+  /** Why the last frame swap was refused, shown in the status line until a swap succeeds. */
+  lastDeny?: string
   stops: readonly (() => void)[]
 }>
 
@@ -99,6 +101,12 @@ const patchSegment = (id: number, segment: number, fn: (current: Run) => Partial
   run = { ...run, ...fn(run) }
   return run
 }
+
+/**
+ * The frame file the pane draws: the last one swapped in, or else the segment's current frame, so the
+ * Image is drawn from the first decoded frame on (a swap can only reach an Image already drawn).
+ */
+const pictureOf = (r: Run): string | undefined => r.displayPath ?? (r.shown > 0 ? framePath(r.segDir, r.shown) : undefined)
 
 /** Seconds into the video now: where it was paused, or where the frame on screen sits. */
 const currentPosition = (r: Run): number => (r.isPaused ? r.pausedAtSec : positionAt(r.offsetSec, r.shown, r.fps))
@@ -164,11 +172,18 @@ const blitFrame = async ($: EngineInterface, id: number, segment: number, next: 
     key: IMAGE_KEY,
     source: { file, format: 'rgb', width: current.size.width, height: current.size.height },
   })
-  if (result.deny !== undefined) {
-    if (ALT_DENY.test(result.deny)) await finish($, id, { status: 'error', line: NEED_TERMINAL })
+  const deny = result.deny
+  if (deny !== undefined) {
+    if (ALT_DENY.test(deny)) await finish($, id, { status: 'error', line: NEED_TERMINAL })
+    else patchSegment(id, segment, () => ({ lastDeny: deny }))
     return
   }
-  const updated = patchSegment(id, segment, r => ({ displayPath: file, shownSinceStats: r.shownSinceStats + 1, prevSegDir: undefined }))
+  const updated = patchSegment(id, segment, r => ({
+    displayPath: file,
+    shownSinceStats: r.shownSinceStats + 1,
+    prevSegDir: undefined,
+    lastDeny: undefined,
+  }))
   if (updated !== undefined && current.prevSegDir !== undefined) await runQuietly($, ['rm', '-rf', current.prevSegDir])
 }
 
@@ -189,8 +204,10 @@ const showFrame = async ($: EngineInterface, id: number, segment: number): Promi
   await blitFrame($, id, segment, next)
 }
 
-const lineFor = (r: Run, fps: number): string =>
-  statusLine({ positionSec: currentPosition(r), durationSec: r.durationSec, fps, hasSound: r.hasSound, isPaused: r.isPaused })
+const lineFor = (r: Run, fps: number): string => {
+  const line = statusLine({ positionSec: currentPosition(r), durationSec: r.durationSec, fps, hasSound: r.hasSound, isPaused: r.isPaused })
+  return r.lastDeny === undefined ? line : `${line} · 换帧被拒：${r.lastDeny}`
+}
 
 /** Once a second: removes frames already shown and refreshes the status line and the progress bar. */
 const reportStats = async ($: EngineInterface, id: number, segment: number): Promise<void> => {
@@ -200,7 +217,8 @@ const reportStats = async ($: EngineInterface, id: number, segment: number): Pro
   patchSegment(id, segment, r => ({ deletedThrough: Math.max(r.deletedThrough, r.shown - 1), shownSinceStats: 0 }))
   if (stale.length > 0) await runQuietly($, ['rm', '-f', ...stale.map(index => framePath(current.segDir, index))])
   if (!isCurrent(id, segment)) return
-  await setPlayer($, { line: lineFor(current, current.shownSinceStats) })
+  const latest = run
+  if (latest !== undefined) await setPlayer($, { line: lineFor(latest, current.shownSinceStats) })
 }
 
 /** The segment's first frame is on disk: its clock, sound and timers start. */
@@ -212,8 +230,10 @@ const startPlayback = async ($: EngineInterface, id: number, segment: number): P
   const frames = $.clock.every(Math.max(1, Math.floor(1000 / current.fps)), () => runInBackground($, showFrame($, id, segment)))
   const stats = $.clock.every(STATS_MS, () => runInBackground($, reportStats($, id, segment)))
   patchSegment(id, segment, r => ({ stops: [...r.stops, () => frames.cancel(), () => stats.cancel()] }))
-  await setPlayer($, { status: 'playing' })
   await showFrame($, id, segment)
+  // redrawn after the first frame is chosen, so the pane draws the Image the next swaps reach;
+  // skipped when that first swap already ended the playback
+  if (isCurrent(id, segment)) await setPlayer($, { status: 'playing' })
 }
 
 /** Runs the segment's ffmpeg, counting decoded frames from its progress output; playback starts with the first. */
@@ -398,7 +418,8 @@ export const register: Register = on => {
     if (e.surface !== 'terminal') return <Text dimColor>{TERMINAL_ONLY}</Text>
     const player = await read($, playerAtom)
     const current = run
-    if (player.dir === undefined || current?.displayPath === undefined) {
+    const picture = current === undefined ? undefined : pictureOf(current)
+    if (player.dir === undefined || current === undefined || picture === undefined) {
       return <Text dimColor>{player.line}</Text>
     }
     const { Image } = $.ui.resolve(e)
@@ -409,7 +430,7 @@ export const register: Register = on => {
       <Box flexDirection="column">
         <Image
           key={IMAGE_KEY}
-          source={{ file: current.displayPath, format: 'rgb', width: current.size.width, height: current.size.height }}
+          source={{ file: picture, format: 'rgb', width: current.size.width, height: current.size.height }}
           columns={columns}
           rows={rowsFor(columns, player.width, player.height)}
           alt="视频画面"

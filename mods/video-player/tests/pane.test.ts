@@ -71,3 +71,32 @@ describe('pane drawing', () => {
     await ui.unmount()
   })
 })
+
+describe('first frame', () => {
+  test('the picture is drawn from the first decoded frame even before any frame swap succeeds', async ($, on) => {
+    const world = setupWorld(on, { probe: SINTEL_PROBE, blitDeny: 'nothing of this plugin is mounted there' })
+    await startSession($)
+    await world.clock.settle()
+    await video($, '/Users/me/Sintel.mkv')
+    await world.clock.settle()
+    world.ffmpeg()?.emit('frame=1\n')
+    await world.clock.settle()
+    const ui = await mountPane($)
+    const tree = JSON.stringify(await ui.drawn())
+    expect(tree).toMatch(new RegExp(`"file":"${ROOT}/play\\.1/s1/000001\\.rgb"`))
+    await ui.unmount()
+  })
+
+  test('a refused swap names its reason in the status line', async ($, on) => {
+    const world = setupWorld(on, { probe: SINTEL_PROBE, blitDeny: 'the size is not the mounted one' })
+    await startSession($)
+    await world.clock.settle()
+    await video($, '/Users/me/Sintel.mkv')
+    await world.clock.settle()
+    world.ffmpeg()?.emit('frame=1\n')
+    await world.clock.settle()
+    world.ffmpeg()?.emit('frame=30\n')
+    await world.clock.advance(1_100)
+    expect(world.player<{ line: string }>().line).toContain('换帧被拒：the size is not the mounted one')
+  })
+})
