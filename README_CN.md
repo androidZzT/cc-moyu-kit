@@ -1,11 +1,12 @@
 <div align="center">
   <img src="docs/market-pane.png" width="720" alt="Claude Code 里的 market-pane" style="border-radius: 16px;">
-  <h1>claude-trading-mods</h1>
+  <h1>cc-moyu-kit · cc-摸鱼套件</h1>
+  <p><strong>Claude Code 摸鱼套件，第一个 mod 是 <code>market-pane</code>。</strong></p>
   <p><strong>在 Claude Code 的侧边面板里看 A股、港股、美股行情。</strong></p>
   <p><em>基于 Claude Code 插件 hook 的 Claude Mods：不用 API key，不开新窗口，面板不抢输入焦点。</em></p>
 
   <p>
-    <a href="https://github.com/androidZzT/claude-trading-mods/stargazers"><img src="https://img.shields.io/github/stars/androidZzT/claude-trading-mods?style=flat-square" alt="Stars"></a>
+    <a href="https://github.com/androidZzT/cc-moyu-kit/stargazers"><img src="https://img.shields.io/github/stars/androidZzT/cc-moyu-kit?style=flat-square" alt="Stars"></a>
     <img src="https://img.shields.io/badge/Claude%20Code-%E2%89%A5%202.1.295-D97757?style=flat-square" alt="Claude Code">
     <img src="https://img.shields.io/badge/TypeScript-strict-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript">
     <img src="https://img.shields.io/badge/API%20key-not%20required-brightgreen?style=flat-square" alt="No API key">
@@ -31,7 +32,7 @@ agent 跑一个长任务，人只能在旁边等。切到行情软件或浏览�
 
 Claude Code 2.1.287 加入了 **Claude Mods**：插件可以开自己的面板、注册命令、通过宿主拉数据。`market-pane` 借这个能力，在对话右侧放一块行情面板。瞄一眼就能看盘，输入焦点一直留在 prompt 上。
 
-> claude-trading-mods 是社区项目，与 Anthropic 无关。行情仅供参考，不构成投资建议。
+> cc-moyu-kit 是社区项目，与 Anthropic 无关。行情仅供参考，不构成投资建议。
 
 ---
 
@@ -72,7 +73,7 @@ Claude Code 2.1.287 加入了 **Claude Mods**：插件可以开自己的面板�
 在 Claude Code 终端会话里输入：
 
 ```
-/plugin install market-pane --marketplace androidZzT/claude-trading-mods
+/plugin install market-pane --marketplace androidZzT/cc-moyu-kit
 ```
 
 提示添加 marketplace 时按 `y`，再回车装到用户级。装完立即生效，不用重启。
@@ -80,8 +81,8 @@ Claude Code 2.1.287 加入了 **Claude Mods**：插件可以开自己的面板�
 想从源码运行（开发用）：
 
 ```bash
-git clone https://github.com/androidZzT/claude-trading-mods.git
-claude --plugin-dir ./claude-trading-mods/mods/market-pane
+git clone https://github.com/androidZzT/cc-moyu-kit.git
+claude --plugin-dir ./cc-moyu-kit/mods/market-pane
 ```
 
 终端宽度 ≥144 列时，会话启动后面板自动出现在右侧；窄于 144 列时 Claude Code 不自动放置，用 `/market` 手动打开。

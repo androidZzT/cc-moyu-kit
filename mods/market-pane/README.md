@@ -39,13 +39,13 @@ A股 ● 盘中
 在 Claude Code 终端会话里安装：
 
 ```
-/plugin install market-pane --marketplace androidZzT/claude-trading-mods
+/plugin install market-pane --marketplace androidZzT/cc-moyu-kit
 ```
 
 或者从源码加载：
 
 ```bash
-claude --plugin-dir /path/to/claude_trading_mods/mods/market-pane
+claude --plugin-dir /path/to/cc-moyu-kit/mods/market-pane
 ```
 
 终端宽度 ≥144 列时，会话启动后面板自动出现在右侧。窄于 144 列时 Claude Code 不让面板自动占位，需要用 `/market` 手动打开。

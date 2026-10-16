@@ -1,6 +1,6 @@
 {
-  "name": "claude-trading-mods",
-  "description": "Claude Code mods for watching A-share, HK and US markets",
+  "name": "cc-moyu-kit",
+  "description": "A slack-off toolkit (摸鱼套件) for Claude Code, starting with a market pane for A-share, HK and US stocks",
   "owner": {
     "name": "androidZzT"
   },

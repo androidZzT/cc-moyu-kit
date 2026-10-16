@@ -1,11 +1,12 @@
 <div align="center">
   <img src="docs/market-pane.png" width="720" alt="market-pane in Claude Code" style="border-radius: 16px;">
-  <h1>claude-trading-mods</h1>
+  <h1>cc-moyu-kit</h1>
+  <p><strong>A slack-off toolkit (摸鱼套件) for Claude Code. First up: <code>market-pane</code>.</strong></p>
   <p><strong>Watch A-share, Hong Kong and US markets from a side pane inside Claude Code.</strong></p>
   <p><em>Claude Mods built on Claude Code's plugin hooks. No API key, no extra window, and the pane never takes your input focus.</em></p>
 
   <p>
-    <a href="https://github.com/androidZzT/claude-trading-mods/stargazers"><img src="https://img.shields.io/github/stars/androidZzT/claude-trading-mods?style=flat-square" alt="Stars"></a>
+    <a href="https://github.com/androidZzT/cc-moyu-kit/stargazers"><img src="https://img.shields.io/github/stars/androidZzT/cc-moyu-kit?style=flat-square" alt="Stars"></a>
     <img src="https://img.shields.io/badge/Claude%20Code-%E2%89%A5%202.1.295-D97757?style=flat-square" alt="Claude Code">
     <img src="https://img.shields.io/badge/TypeScript-strict-3178C6?style=flat-square&logo=typescript&logoColor=white" alt="TypeScript">
     <img src="https://img.shields.io/badge/API%20key-not%20required-brightgreen?style=flat-square" alt="No API key">
@@ -31,7 +32,7 @@ A long agent turn leaves you waiting. Switching to a broker app or a browser tab
 
 Claude Code 2.1.287 added **Claude Mods**: plugins can now open their own panes, register commands and fetch data through the host. `market-pane` uses that to dock a market board on the right side of the transcript. You check the market with a glance, and your prompt keeps the focus.
 
-> claude-trading-mods is a community project, not affiliated with Anthropic. Quotes are for reference only and are not investment advice.
+> cc-moyu-kit is a community project, not affiliated with Anthropic. Quotes are for reference only and are not investment advice.
 
 ---
 
@@ -72,7 +73,7 @@ Claude Code 2.1.287 added **Claude Mods**: plugins can now open their own panes,
 In a Claude Code terminal session, type:
 
 ```
-/plugin install market-pane --marketplace androidZzT/claude-trading-mods
+/plugin install market-pane --marketplace androidZzT/cc-moyu-kit
 ```
 
 Answer `y` to add the marketplace, then press Enter to install at user scope. The mod is active right away, no restart needed.
@@ -80,8 +81,8 @@ Answer `y` to add the marketplace, then press Enter to install at user scope. Th
 To run from a clone instead (for development):
 
 ```bash
-git clone https://github.com/androidZzT/claude-trading-mods.git
-claude --plugin-dir ./claude-trading-mods/mods/market-pane
+git clone https://github.com/androidZzT/cc-moyu-kit.git
+claude --plugin-dir ./cc-moyu-kit/mods/market-pane
 ```
 
 At 144 columns or wider, the pane opens on the right once the session starts. In a narrower terminal Claude Code doesn't place it automatically; run `/market` to open it.
