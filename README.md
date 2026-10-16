@@ -128,6 +128,28 @@ All data comes from Tencent Finance's public endpoints (no key). They are unoffi
 
 ---
 
+## 🎬 video-player
+
+Play a local video in a side pane while an agent works: the picture in the pane, the sound through your speakers.
+
+```
+/plugin install video-player --marketplace androidZzT/cc-moyu-kit
+```
+
+| Command | What it does |
+| --- | --- |
+| `/video <absolute path> [fps]` | Play the file in the pane; fps 1–60, default 15 |
+| `/video stop` | Stop the picture and the sound, remove the temporary frames, close the pane |
+
+- Needs ffmpeg and ffprobe (`brew install ffmpeg`, which brings ffplay for the sound) and a terminal that shows images, such as kitty or Ghostty
+- ffmpeg decodes only about 3 seconds ahead and frames already shown are deleted, so the temp folder stays around 10 MB whatever the length
+- The status line under the picture reads `01:05 / 14:48 · 15 fps`
+- No pause, seeking, streams or subtitles yet. Tested on macOS with Ghostty
+
+Details in [`mods/video-player/README.md`](mods/video-player/README.md).
+
+---
+
 ## 🛠️ Development
 
 ```bash
@@ -137,7 +159,7 @@ claude plugin test .
 npx -p typescript tsc -p .   # load once with --plugin-dir first to generate .claude-plugin/types
 ```
 
-Every call that touches `$` (the engine) lives in `hooks/register.tsx`; parsing, trading hours, rendering and watchlist logic are pure modules with their own tests. See [`mods/market-pane/README.md`](mods/market-pane/README.md) for the file map.
+Every call that touches `$` (the engine) lives in `hooks/register.tsx`; parsing, trading hours, rendering and watchlist logic are pure modules with their own tests. See [`mods/market-pane/README.md`](mods/market-pane/README.md) for the file map. `mods/video-player` follows the same layout.
 
 Specs and change history are kept with [OpenSpec](openspec/).
 

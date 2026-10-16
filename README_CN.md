@@ -128,6 +128,28 @@ claude --plugin-dir ./cc-moyu-kit/mods/market-pane
 
 ---
 
+## 🎬 video-player
+
+agent 干活的时候，在侧边面板里放本地视频：画面在面板里，声音从扬声器出来。
+
+```
+/plugin install video-player --marketplace androidZzT/cc-moyu-kit
+```
+
+| 命令 | 作用 |
+| --- | --- |
+| `/video <绝对路径> [fps]` | 在面板里播放这个文件；fps 1–60，默认 15 |
+| `/video stop` | 停止画面和声音，删除临时帧，关闭面板 |
+
+- 需要 ffmpeg 和 ffprobe（`brew install ffmpeg`，会一起装上出声音用的 ffplay），以及能显示图片的终端，如 kitty、Ghostty
+- ffmpeg 只比播放领先约 3 秒，播过的帧随即删除，不管片子多长，临时目录都在 10 MB 左右
+- 画面下方的状态行形如 `01:05 / 14:48 · 15 fps`
+- 暂不支持暂停、拖动进度、网络流和字幕。目前在 macOS + Ghostty 上验证过
+
+详细说明见 [`mods/video-player/README.md`](mods/video-player/README.md)。
+
+---
+
 ## 🛠️ 开发
 
 ```bash
@@ -137,7 +159,7 @@ claude plugin test .
 npx -p typescript tsc -p .   # 先用 --plugin-dir 加载一次，生成 .claude-plugin/types
 ```
 
-所有碰 `$`（引擎）的调用都集中在 `hooks/register.tsx`；解析、交易时段、绘制、自选逻辑都是纯函数模块，各有测试。文件说明见 [`mods/market-pane/README.md`](mods/market-pane/README.md)。
+所有碰 `$`（引擎）的调用都集中在 `hooks/register.tsx`；解析、交易时段、绘制、自选逻辑都是纯函数模块，各有测试。文件说明见 [`mods/market-pane/README.md`](mods/market-pane/README.md)，`mods/video-player` 结构相同。
 
 需求和变更记录用 [OpenSpec](openspec/) 管理。
 

@@ -1,6 +1,6 @@
 {
   "name": "cc-moyu-kit",
-  "description": "A slack-off toolkit (摸鱼套件) for Claude Code, starting with a market pane for A-share, HK and US stocks",
+  "description": "A slack-off toolkit (摸鱼套件) for Claude Code: a market pane for A-share, HK and US stocks, and a video player",
   "owner": {
     "name": "androidZzT"
   },
@@ -8,6 +8,10 @@
     {
       "name": "market-pane",
       "source": "./mods/market-pane"
+    },
+    {
+      "name": "video-player",
+      "source": "./mods/video-player"
     }
   ]
 }

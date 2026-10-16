@@ -1,0 +1,10 @@
+{
+  "name": "video-player",
+  "version": "0.1.0",
+  "description": "在 Claude Code 侧边面板播放本地视频（ffmpeg 解帧，ffplay 出声）",
+  "types": "./types/index.d.ts",
+  "author": {
+    "name": "zhangzhengtian",
+    "email": "zzt186@gmail.com"
+  }
+}
