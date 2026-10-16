@@ -10,6 +10,7 @@ export const ROOT = '/tmp/T/cc-moyu-video'
 export const ALL_TOOLS = '/opt/homebrew/bin/ffmpeg\n/opt/homebrew/bin/ffprobe\n/opt/homebrew/bin/ffplay\n'
 export const NO_FFPLAY = '/opt/homebrew/bin/ffmpeg\n/opt/homebrew/bin/ffprobe\nffplay not found\n'
 export const NO_FFMPEG = 'ffmpeg not found\nffprobe not found\nffplay not found\n'
+export const WITH_YTDLP = `${ALL_TOOLS}/Users/me/.local/bin/yt-dlp\n`
 // captured from ffprobe on Sintel (1280×544, 14:48, audio) and a silent 20 s test clip
 export const SINTEL_PROBE =
   '{"streams": [{"codec_type": "video", "width": 1280, "height": 544}, {"codec_type": "audio"}], "format": {"duration": "888.032000"}}'
@@ -67,6 +68,9 @@ export type WorldOptions = {
   stale?: string
   blitDeny?: string
   store?: Record<string, unknown>
+  /** ffprobe answers by input: the last argument; inputs not listed are not videos. Overrides `probe`. */
+  probes?: Record<string, string>
+  ytdlp?: { exitCode: number; stdout?: string; stderr?: string }
 }
 
 export const setupWorld = (on: On, options: WorldOptions = {}) => {
@@ -94,16 +98,22 @@ export const setupWorld = (on: On, options: WorldOptions = {}) => {
   on('session.start', async (_$, e) => ({ cwd: e.cwd }))
   on('command.register', async (_$, e) => ({ value: { command: e.name } }) as never)
 
-  const reply = (exitCode: number, stdout = '') =>
-    ({ value: { exitCode, stdout, stderr: '', isStdoutTruncated: false, isStderrTruncated: false } }) as never
+  const reply = (exitCode: number, stdout = '', stderr = '') =>
+    ({ value: { exitCode, stdout, stderr, isStdoutTruncated: false, isStderrTruncated: false } }) as never
+  const probeFor = (input: string | undefined): string | undefined =>
+    options.probes === undefined ? options.probe : options.probes[input ?? '']
   on('process.run', async (_$, e) => {
     const argv = e.argv as readonly string[]
     runs.push(argv)
     switch (argv[0]) {
       case 'which':
         return reply(0, options.which ?? ALL_TOOLS)
-      case 'ffprobe':
-        return options.probe === undefined ? reply(1, '{\n\n}') : reply(0, options.probe)
+      case 'ffprobe': {
+        const probe = probeFor(argv.at(-1))
+        return probe === undefined ? reply(1, '{\n\n}') : reply(0, probe)
+      }
+      case 'yt-dlp':
+        return reply(options.ytdlp?.exitCode ?? 1, options.ytdlp?.stdout ?? '', options.ytdlp?.stderr ?? '')
       case 'mktemp':
         made += 1
         return reply(0, `${ROOT}/play.${made}\n`)

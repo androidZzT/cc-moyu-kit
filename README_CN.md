@@ -139,6 +139,7 @@ agent 干活的时候，在侧边面板里放本地视频：画面在面板里�
 | 命令 | 作用 |
 | --- | --- |
 | `/video <绝对路径> [fps]` | 在面板里播放这个文件；fps 1–60，默认 15 |
+| `/video <http(s) 链接> [fps]` | 播放直链（`.mp4`、`.m3u8`）或 B 站、YouTube 等网页链接（用本机 `yt-dlp` 解析） |
 | `/video pause` / `/video resume` | 暂停在当前帧 / 从暂停处继续 |
 | `/video seek <位置>` | 跳到 `05:30` 或 `330`（秒），或用 `+10`、`-10` 相对跳 |
 | `/video volume <0–100>` / `/video mute` | 单独设视频音量 / 切换静音，跨会话记住 |
@@ -147,7 +148,7 @@ agent 干活的时候，在侧边面板里放本地视频：画面在面板里�
 - 需要 ffmpeg 和 ffprobe（`brew install ffmpeg`，会一起装上出声音用的 ffplay），以及能显示图片的终端，如 kitty、Ghostty
 - 画面下方是和面板同宽的进度条（点哪一格跳到哪里），以及 ⏸/▶、« 10s、10s »、🔉、🔊、🔇 按钮；面板有焦点时可用快捷键 `p`、`h`、`l`、`j`、`k`、`m`；后面是 `01:05 / 14:48 · 15 fps · 音量 100%` 状态行
 - 帧是原始 RGB 像素，终端不用解码。ffmpeg 只比播放领先约 2 秒，播过的帧随即删除，15 fps 下临时目录在 30 MB 左右，和片长无关
-- 暂不支持网络流、字幕和倍速。目前在 macOS + Ghostty 上验证过
+- 网页链接需要 `yt-dlp`（`brew install yt-dlp`）；画面最多取 480p，因为只按 640 宽显示。暂不支持直播、登录、播放列表、字幕和倍速。目前在 macOS + Ghostty 上验证过
 
 详细说明见 [`mods/video-player/README.md`](mods/video-player/README.md)。
 

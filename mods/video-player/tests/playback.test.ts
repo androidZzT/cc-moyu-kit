@@ -127,7 +127,7 @@ describe('声音', () => {
     expect(world.spawned('ffplay')).toHaveLength(0)
     world.ffmpeg()?.emit('frame=1\n')
     await world.clock.settle()
-    expect(world.ffplay()?.argv).toEqual(['ffplay', '-nodisp', '-autoexit', '-loglevel', 'error', '-vn', '-sn', '-volume', '100', '/Users/me/Sintel.mkv'])
+    expect(world.ffplay()?.argv).toEqual(['ffplay', '-nodisp', '-autoexit', '-loglevel', 'info', '-vn', '-sn', '-volume', '100', '/Users/me/Sintel.mkv'])
   })
 
   test('没有 ffplay: the picture plays and the status line says there is no sound', async ($, on) => {

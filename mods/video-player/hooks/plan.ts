@@ -2,6 +2,8 @@
 
 import { parseSeek } from './timeline'
 import type { SeekTarget } from './timeline'
+import { headersArgs, isUrl } from './source'
+import type { Media } from './source'
 import { parseLevel } from './volume'
 
 export const DEFAULT_FPS = 15
@@ -10,7 +12,7 @@ export const MAX_FPS = 60
 export const FRAME_WIDTH = 640
 /** Seconds ffmpeg may run ahead of playback before it is held to real time. */
 export const DECODE_LEAD_SEC = 2
-export const TOOLS = ['ffmpeg', 'ffprobe', 'ffplay'] as const
+export const TOOLS = ['ffmpeg', 'ffprobe', 'ffplay', 'yt-dlp'] as const
 
 export type Tool = (typeof TOOLS)[number]
 export type Tools = Readonly<Record<Tool, boolean>>
@@ -26,7 +28,7 @@ const USAGE: PlayArgs = { kind: 'usage' }
 
 const unquote = (text: string): string => text.replace(/^(["'])(.*)\1$/, '$2')
 
-/** `/video <absolute path> [fps]`: the path may hold spaces, so a trailing whole number is the fps. */
+/** `/video <absolute path | http(s) link> [fps]`: a path may hold spaces, so a trailing whole number is the fps. */
 export const parseArgs = (args: string): PlayArgs => {
   const text = args.trim()
   if (text === 'stop' || text === 'pause' || text === 'resume' || text === 'mute') return { kind: text }
@@ -41,7 +43,7 @@ export const parseArgs = (args: string): PlayArgs => {
   const match = /^(.*?)(?:\s+(\d+))?$/.exec(text)
   const path = unquote((match?.[1] ?? '').trim())
   const fps = match?.[2] === undefined ? DEFAULT_FPS : Number(match[2])
-  if (!path.startsWith('/')) return USAGE
+  if (!path.startsWith('/') && !isUrl(path)) return USAGE
   if (fps < 1 || fps > MAX_FPS) return USAGE
   return { kind: 'play', path, fps }
 }
@@ -52,12 +54,17 @@ export const whichArgv = (): readonly string[] => ['which', ...TOOLS]
 export const parseWhich = (stdout: string): Tools => {
   const lines = stdout.split('\n').map(line => line.trim())
   const has = (tool: Tool): boolean => lines.some(line => line.endsWith(`/${tool}`))
-  return { ffmpeg: has('ffmpeg'), ffprobe: has('ffprobe'), ffplay: has('ffplay') }
+  return { ffmpeg: has('ffmpeg'), ffprobe: has('ffprobe'), ffplay: has('ffplay'), 'yt-dlp': has('yt-dlp') }
 }
 
-export const probeArgv = (path: string): readonly string[] => [
-  'ffprobe', '-v', 'error', '-show_entries', 'stream=codec_type,width,height:format=duration', '-of', 'json', path,
+export const probeArgv = (input: Media): readonly string[] => [
+  'ffprobe', '-v', 'error', '-show_entries', 'stream=codec_type,width,height:format=duration', '-of', 'json',
+  ...headersArgs(input.headers), input.url,
 ]
+
+/** ffmpeg's http options to pick a dropped connection back up, for network inputs only. */
+const reconnectArgs = (input: Media): readonly string[] =>
+  isUrl(input.url) ? ['-reconnect', '1', '-reconnect_streamed', '1', '-reconnect_delay_max', '5'] : []
 
 type ProbeStream = { codec_type?: unknown; width?: unknown; height?: unknown }
 
@@ -98,17 +105,25 @@ export const frameSize = (width: number, height: number): FrameSize => ({
  * Picture only, held to playback speed after a short head start, each frame written as raw RGB
  * so the terminal draws it without decoding; the size is given exactly so every file matches it.
  */
-export const decodeArgv = (path: string, fps: number, dir: string, size: FrameSize, offsetSec = 0): readonly string[] => [
+export const decodeArgv = (input: Media, fps: number, dir: string, size: FrameSize, offsetSec = 0): readonly string[] => [
   'ffmpeg', '-hide_banner', '-loglevel', 'error', '-nostdin', ...seekArgs(offsetSec),
   '-readrate', '1', '-readrate_initial_burst', String(DECODE_LEAD_SEC),
-  '-i', path, '-an', '-sn',
+  ...reconnectArgs(input), ...headersArgs(input.headers), '-i', input.url, '-an', '-sn',
   '-vf', `fps=${fps},scale=${size.width}:${size.height}`,
   '-progress', 'pipe:1', '-f', 'image2', '-c:v', 'rawvideo', '-pix_fmt', 'rgb24', '-y', `${dir}/%06d.rgb`,
 ]
 
-export const audioArgv = (path: string, offsetSec: number, level: number): readonly string[] => [
-  'ffplay', '-nodisp', '-autoexit', '-loglevel', 'error', '-vn', '-sn', '-volume', String(level), ...seekArgs(offsetSec), path,
+/** Sound only; at `info` ffplay prints its status line, whose first number is the sound clock. */
+export const audioArgv = (input: Media, offsetSec: number, level: number): readonly string[] => [
+  'ffplay', '-nodisp', '-autoexit', '-loglevel', 'info', '-vn', '-sn', '-volume', String(level), ...seekArgs(offsetSec),
+  ...headersArgs(input.headers), input.url,
 ]
+
+/** The sound clock in the first ffplay status line that has one (`  99.97 M-A: ...`); `nan` lines have none. */
+export const firstAudioClock = (text: string): number | undefined => {
+  const match = /(?:^|[\r\n])\s*(\d+(?:\.\d+)?) M-A:/.exec(text)
+  return match === null ? undefined : Number(match[1])
+}
 
 /** The last `frame=N` in a piece of ffmpeg's progress output, if any. */
 export const lastProgressFrame = (text: string): number | undefined => {

@@ -6,6 +6,7 @@ import { frameRoot, parseStale, staleArgv } from './cleanup'
 import {
   audioArgv,
   decodeArgv,
+  firstAudioClock,
   framePath,
   frameSize,
   lastProgressFrame,
@@ -16,6 +17,8 @@ import {
   whichArgv,
 } from './plan'
 import type { FrameSize, Probe, Tools } from './plan'
+import { isUrl, parseYtdlp, plainMedia, ytdlpArgv } from './source'
+import type { Media } from './source'
 import {
   DONE_LINE,
   dueFrame,
@@ -37,7 +40,9 @@ import type { Volume } from './volume'
 // the other modules hold pure logic. A playback runs as segments: each is an ffmpeg writing raw RGB
 // frames from one start position at playback speed, an ffplay for the sound from the same position,
 // and timers that swap the keyed Image's `{ file }` source with `$.ui.blit`. Pause ends the segment;
-// resume and seek start a new one. A volume change restarts only the segment's ffplay.
+// resume and seek start a new one. A volume change restarts only the segment's ffplay. Each ffplay's
+// first sound clock re-anchors the picture clock, so a sound that starts late is not left behind.
+// A link is read directly when ffprobe can, else resolved by yt-dlp into addresses and headers.
 
 const PANE_ID = 'video-player'
 const PANE_TITLE = '视频'
@@ -47,8 +52,11 @@ const STATS_MS = 1_000
 const TOUCH_MS = 60_000
 const STEP_SEC = 10
 const USAGE =
-  '用法：/video <绝对路径> [fps 1–60，默认 15] · /video pause | resume | seek <mm:ss|秒|+N|-N> | volume <0–100> | mute | stop'
+  '用法：/video <绝对路径|http(s) 链接> [fps 1–60，默认 15] · /video pause | resume | seek <mm:ss|秒|+N|-N> | volume <0–100> | mute | stop'
 const NEED_FFMPEG = '需要 ffmpeg 和 ffprobe：brew install ffmpeg'
+const NEED_YTDLP = '播放网页链接需要 yt-dlp：brew install yt-dlp'
+const NO_LIVE = '不支持直播'
+const CANNOT_RESOLVE = '解析不了这个链接'
 const NEED_TERMINAL = '这个终端不能显示图片，请在 kitty、Ghostty 等支持图片的终端里播放'
 const TERMINAL_ONLY = '视频只能在终端里播放（kitty、Ghostty 等）'
 const NOT_PLAYING = '没有在播放'
@@ -67,7 +75,9 @@ const playerAtom = atom({ plugin: 'video-player', key: 'player' } as const, IDLE
  */
 type Run = Readonly<{
   id: number
-  path: string
+  /** Where the picture is read from, and the sound: one address for a file, maybe two for a web page. */
+  video: Media
+  audio: Media
   fps: number
   dir: string
   size: FrameSize
@@ -88,6 +98,8 @@ type Run = Readonly<{
   lastFps: number
   /** Ends the segment's ffplay alone, so a volume change can restart the sound without the picture. */
   stopSound?: () => void
+  /** Counts the segment's ffplay starts; only the latest one's clock re-anchors the picture. */
+  sound: number
   /** The frame file on screen, kept across segments so the picture never blanks while a new one starts. */
   displayPath?: string
   /** The previous segment's directory, removed once the new segment's first frame is on screen. */
@@ -129,11 +141,14 @@ const runInBackground = ($: EngineInterface, work: Promise<unknown>): void => {
 }
 
 /** Runs a command; a command that cannot start reads as a failure with empty output. */
-const runQuietly = async ($: EngineInterface, argv: readonly string[]): Promise<{ exitCode: number; stdout: string }> => {
+const runQuietly = async (
+  $: EngineInterface,
+  argv: readonly string[],
+): Promise<{ exitCode: number; stdout: string; stderr: string }> => {
   try {
     return await $.process.run(argv)
   } catch {
-    return { exitCode: 1, stdout: '' }
+    return { exitCode: 1, stdout: '', stderr: '' }
   }
 }
 
@@ -163,14 +178,39 @@ const playSound = ($: EngineInterface, id: number, segment: number, atSec: numbe
   const current = run
   const level = audibleLevel(volume)
   if (current === undefined || !isCurrent(id, segment) || !current.hasSound || level === 0) return
-  const child = $.process.spawn({ argv: audioArgv(current.path, atSec, level) })
-  patchSegment(id, segment, () => ({ stopSound: killer(child) }))
-  runInBackground(
-    $,
-    (async () => {
-      for await (const piece of child) void piece
-    })(),
-  )
+  const sound = current.sound + 1
+  const child = $.process.spawn({ argv: audioArgv(current.audio, atSec, level) })
+  patchSegment(id, segment, () => ({ stopSound: killer(child), sound }))
+  runInBackground($, followSound($, id, segment, sound, child))
+}
+
+/** Reads ffplay's status output until its first sound clock, which re-anchors the picture clock once. */
+const followSound = async (
+  $: EngineInterface,
+  id: number,
+  segment: number,
+  sound: number,
+  child: AsyncIterable<{ text: string }>,
+): Promise<void> => {
+  let partial = ''
+  let isAligned = false
+  for await (const { text } of child) {
+    if (isAligned) continue
+    const clockSec = firstAudioClock(partial + text)
+    partial = /[^\r\n]*$/.exec(text)?.[0] ?? ''
+    if (clockSec === undefined) continue
+    isAligned = true
+    await alignToSound($, id, segment, sound, clockSec)
+  }
+}
+
+/**
+ * Moves the segment's clock so the frame due now is the one at `clockSec`, where the sound is. A sound
+ * that started late puts the due frame behind the one on screen, and the picture holds until it catches up.
+ */
+const alignToSound = async ($: EngineInterface, id: number, segment: number, sound: number, clockSec: number): Promise<void> => {
+  const now = await $.clock.now()
+  patchSegment(id, segment, r => (r.sound === sound ? { startedAt: now - (clockSec - r.offsetSec) * 1000 } : {}))
 }
 
 /** Puts `next` on screen; the previous segment's frames go once the new segment has a frame up. */
@@ -262,7 +302,7 @@ const startPlayback = async ($: EngineInterface, id: number, segment: number): P
 const decode = async ($: EngineInterface, id: number, segment: number): Promise<void> => {
   const current = run
   if (current === undefined || !isCurrent(id, segment)) return
-  const child = $.process.spawn({ argv: decodeArgv(current.path, current.fps, current.segDir, current.size, current.offsetSec) })
+  const child = $.process.spawn({ argv: decodeArgv(current.video, current.fps, current.segDir, current.size, current.offsetSec) })
   patchSegment(id, segment, r => ({ stops: [...r.stops, killer(child)] }))
   let errors = ''
   for await (const { stream, text } of child) {
@@ -377,9 +417,38 @@ const makePlaybackDir = async ($: EngineInterface): Promise<string | undefined> 
   return made.exitCode === 0 && dir.startsWith(`${root}/`) ? dir : undefined
 }
 
-const readProbe = async ($: EngineInterface, path: string): Promise<Probe | undefined> => {
-  const probed = await runQuietly($, probeArgv(path))
+const readProbe = async ($: EngineInterface, input: Media): Promise<Probe | undefined> => {
+  const probed = await runQuietly($, probeArgv(input))
   return probed.exitCode === 0 ? parseProbe(probed.stdout) : undefined
+}
+
+/** What to play, or the one line saying why it cannot be played. */
+type Opened = { kind: 'ok'; video: Media; audio: Media; probe: Probe } | { kind: 'error'; text: string }
+
+const refuse = (text: string): Opened => ({ kind: 'error', text })
+
+const openFile = async ($: EngineInterface, path: string): Promise<Opened> => {
+  const media = plainMedia(path)
+  const probe = await readProbe($, media)
+  return probe === undefined ? refuse(`读不了这个视频：${path}`) : { kind: 'ok', video: media, audio: media, probe }
+}
+
+/** A direct link plays as it is; a web page is resolved by yt-dlp into its picture and sound addresses. */
+const openLink = async ($: EngineInterface, url: string, tools: Tools): Promise<Opened> => {
+  const direct = plainMedia(url)
+  const probe = await readProbe($, direct)
+  if (probe !== undefined) return probe.durationSec > 0 ? { kind: 'ok', video: direct, audio: direct, probe } : refuse(NO_LIVE)
+  if (!tools['yt-dlp']) return refuse(NEED_YTDLP)
+  const answer = await runQuietly($, ytdlpArgv(url))
+  if (answer.exitCode !== 0) return refuse(`${CANNOT_RESOLVE}：${answer.stderr.trim().slice(0, ERROR_DETAIL_CHARS)}`)
+  const resolved = parseYtdlp(answer.stdout)
+  if (resolved === undefined) return refuse(CANNOT_RESOLVE)
+  if (resolved.isLive) return refuse(NO_LIVE)
+  const probed = await readProbe($, resolved.video)
+  if (probed === undefined) return refuse(`读不了这个视频：${url}`)
+  if (probed.durationSec <= 0) return refuse(NO_LIVE)
+  const hasAudioTrack = resolved.audio.url !== resolved.video.url || probed.hasAudioTrack
+  return { kind: 'ok', video: resolved.video, audio: resolved.audio, probe: { ...probed, hasAudioTrack } }
 }
 
 const findTools = async ($: EngineInterface): Promise<Tools> => parseWhich((await runQuietly($, whichArgv())).stdout)
@@ -388,14 +457,16 @@ const play = async ($: EngineInterface, path: string, fps: number): Promise<stri
   await stopCurrent($)
   const tools = await findTools($)
   if (!tools.ffmpeg || !tools.ffprobe) return NEED_FFMPEG
-  const probe = await readProbe($, path)
-  if (probe === undefined) return `读不了这个视频：${path}`
+  const opened = isUrl(path) ? await openLink($, path, tools) : await openFile($, path)
+  if (opened.kind === 'error') return opened.text
+  const { probe } = opened
   const dir = await makePlaybackDir($)
   if (dir === undefined) return '建不了临时目录，没有开始播放'
   const id = nextRunId++
   run = {
     id,
-    path,
+    video: opened.video,
+    audio: opened.audio,
     fps,
     dir,
     size: frameSize(probe.width, probe.height),
@@ -412,6 +483,7 @@ const play = async ($: EngineInterface, path: string, fps: number): Promise<stri
     deletedThrough: 0,
     shownSinceStats: 0,
     lastFps: fps,
+    sound: 0,
     stops: [],
   }
   const decoding: Player = { status: 'decoding', dir, width: probe.width, height: probe.height, line: DECODING_LINE }
@@ -432,7 +504,7 @@ export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     await $.command.register({
       name: 'video',
-      description: '在侧边面板播放本地视频：/video <绝对路径> [fps] · pause · resume · seek <位置> · volume <0–100> · mute · stop',
+      description: '在侧边面板播放视频：/video <绝对路径|链接> [fps] · pause · resume · seek <位置> · volume <0–100> · mute · stop',
     })
     volume = readVolume(await $.store.get(VOLUME_KEY))
     runInBackground($, removeLeftovers($))
