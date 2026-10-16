@@ -57,7 +57,7 @@ describe('画面按时间推进', () => {
     await world.clock.settle()
     world.ffmpeg()?.emit('frame=60\n')
     await world.clock.advance(2_100)
-    expect(world.player<{ line: string }>().line).toMatch(/^00:0[12] \/ 14:48 · \d+ fps$/)
+    expect(world.player<{ line: string }>().line).toMatch(/^00:0[12] \/ 14:48 · \d+ fps · 音量 100%$/)
   })
 })
 
@@ -127,7 +127,7 @@ describe('声音', () => {
     expect(world.spawned('ffplay')).toHaveLength(0)
     world.ffmpeg()?.emit('frame=1\n')
     await world.clock.settle()
-    expect(world.ffplay()?.argv).toEqual(['ffplay', '-nodisp', '-autoexit', '-loglevel', 'error', '-vn', '-sn', '/Users/me/Sintel.mkv'])
+    expect(world.ffplay()?.argv).toEqual(['ffplay', '-nodisp', '-autoexit', '-loglevel', 'error', '-vn', '-sn', '-volume', '100', '/Users/me/Sintel.mkv'])
   })
 
   test('没有 ffplay: the picture plays and the status line says there is no sound', async ($, on) => {

@@ -46,7 +46,7 @@ describe('暂停与继续', () => {
     await world.clock.settle()
     expect(world.ffmpeg()?.killed).toBe(true)
     expect(world.ffplay()?.killed).toBe(true)
-    expect(world.player<{ status: string; line: string }>()).toMatchObject({ status: 'paused', line: '⏸ 00:02 / 14:48' })
+    expect(world.player<{ status: string; line: string }>()).toMatchObject({ status: 'paused', line: '⏸ 00:02 / 14:48 · 音量 100%' })
     const blits = world.blits.length
     await world.clock.advance(2_000)
     expect(world.blits).toHaveLength(blits)

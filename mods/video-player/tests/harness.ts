@@ -66,6 +66,7 @@ export type WorldOptions = {
   probe?: string
   stale?: string
   blitDeny?: string
+  store?: Record<string, unknown>
 }
 
 export const setupWorld = (on: On, options: WorldOptions = {}) => {
@@ -76,7 +77,14 @@ export const setupWorld = (on: On, options: WorldOptions = {}) => {
   const blits: string[] = []
   const panes = new Set<string>()
   const state = new Map<string, unknown>()
+  const stored = new Map<string, unknown>(Object.entries(options.store ?? {}))
   let made = 0
+
+  on('store.get', async (_$, e) => ({ value: stored.get(e.key) }) as never)
+  on('store.set', async (_$, e) => {
+    stored.set(e.key, e.value)
+    return { value: undefined } as never
+  })
 
   on('state.set', async (_$, e, next) => {
     const result = await next(e)
@@ -147,6 +155,7 @@ export const setupWorld = (on: On, options: WorldOptions = {}) => {
     ffplay: (): FakeChild | undefined => spawned('ffplay').at(-1),
     spawned,
     player: <T>(): T => state.get('player') as T,
+    stored: (key: string): unknown => stored.get(key),
   }
 }
 

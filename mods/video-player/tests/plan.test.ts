@@ -84,12 +84,12 @@ describe('decode and audio', () => {
   })
 
   test('plays the audio track with no window', () => {
-    expect(audioArgv('/v.mkv', 0)).toEqual(['ffplay', '-nodisp', '-autoexit', '-loglevel', 'error', '-vn', '-sn', '/v.mkv'])
+    expect(audioArgv('/v.mkv', 0, 100)).toEqual(['ffplay', '-nodisp', '-autoexit', '-loglevel', 'error', '-vn', '-sn', '-volume', '100', '/v.mkv'])
   })
 
   test('a segment starting later seeks both the picture and the sound there', () => {
     expect(decodeArgv('/v.mkv', 15, '/t/s2', { width: 640, height: 272 }, 65.5).slice(5, 7)).toEqual(['-ss', '65.5'])
-    expect(audioArgv('/v.mkv', 65.5)).toEqual(['ffplay', '-nodisp', '-autoexit', '-loglevel', 'error', '-vn', '-sn', '-ss', '65.5', '/v.mkv'])
+    expect(audioArgv('/v.mkv', 65.5, 40)).toEqual(['ffplay', '-nodisp', '-autoexit', '-loglevel', 'error', '-vn', '-sn', '-volume', '40', '-ss', '65.5', '/v.mkv'])
   })
 
   test('parses pause, resume and seek', () => {
@@ -98,6 +98,10 @@ describe('decode and audio', () => {
     expect(parseArgs('seek 05:30')).toEqual({ kind: 'seek', target: { kind: 'absolute', sec: 330 } })
     expect(parseArgs('seek -10')).toEqual({ kind: 'seek', target: { kind: 'relative', sec: -10 } })
     expect(parseArgs('seek later')).toEqual({ kind: 'usage' })
+    expect(parseArgs('volume 40')).toEqual({ kind: 'volume', level: 40 })
+    expect(parseArgs('mute')).toEqual({ kind: 'mute' })
+    expect(parseArgs('volume 150')).toEqual({ kind: 'usage' })
+    expect(parseArgs('volume')).toEqual({ kind: 'usage' })
   })
 
   test('reads the last frame count from a piece of progress output', () => {

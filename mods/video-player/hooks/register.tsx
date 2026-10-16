@@ -30,12 +30,14 @@ import {
   statusLine,
 } from './timeline'
 import type { SeekTarget } from './timeline'
+import { DEFAULT_VOLUME, VOLUME_KEY, audibleLevel, readVolume, setLevel, stepVolume, toggleMute, volumeLabel } from './volume'
+import type { Volume } from './volume'
 
 // `$` may only be handed to functions declared in this file, so every engine-facing step lives here;
 // the other modules hold pure logic. A playback runs as segments: each is an ffmpeg writing raw RGB
 // frames from one start position at playback speed, an ffplay for the sound from the same position,
 // and timers that swap the keyed Image's `{ file }` source with `$.ui.blit`. Pause ends the segment;
-// resume and seek start a new one.
+// resume and seek start a new one. A volume change restarts only the segment's ffplay.
 
 const PANE_ID = 'video-player'
 const PANE_TITLE = '视频'
@@ -44,7 +46,8 @@ const STATS_MS = 1_000
 /** While paused, the playback directory is touched this often so no session takes it for a leftover. */
 const TOUCH_MS = 60_000
 const STEP_SEC = 10
-const USAGE = '用法：/video <绝对路径> [fps 1–60，默认 15] · /video pause | resume | seek <mm:ss|秒|+N|-N> | stop'
+const USAGE =
+  '用法：/video <绝对路径> [fps 1–60，默认 15] · /video pause | resume | seek <mm:ss|秒|+N|-N> | volume <0–100> | mute | stop'
 const NEED_FFMPEG = '需要 ffmpeg 和 ffprobe：brew install ffmpeg'
 const NEED_TERMINAL = '这个终端不能显示图片，请在 kitty、Ghostty 等支持图片的终端里播放'
 const TERMINAL_ONLY = '视频只能在终端里播放（kitty、Ghostty 等）'
@@ -81,6 +84,10 @@ type Run = Readonly<{
   deletedThrough: number
   startedAt?: number
   shownSinceStats: number
+  /** Frames shown in the last full second, for the status line. */
+  lastFps: number
+  /** Ends the segment's ffplay alone, so a volume change can restart the sound without the picture. */
+  stopSound?: () => void
   /** The frame file on screen, kept across segments so the picture never blanks while a new one starts. */
   displayPath?: string
   /** The previous segment's directory, removed once the new segment's first frame is on screen. */
@@ -92,6 +99,8 @@ type Run = Readonly<{
 
 let run: Run | undefined
 let nextRunId = 1
+/** The volume every ffplay starts at; read back from the store when the session starts. */
+let volume: Volume = DEFAULT_VOLUME
 
 const isCurrent = (id: number, segment: number): boolean => run?.id === id && run.segment === segment
 
@@ -132,8 +141,9 @@ const runQuietly = async ($: EngineInterface, argv: readonly string[]): Promise<
 const halt = (): void => {
   const halting = run
   if (halting === undefined) return
-  run = { ...halting, stops: [] }
+  run = { ...halting, stops: [], stopSound: undefined }
   halting.stops.forEach(stop => stop())
+  halting.stopSound?.()
 }
 
 /** Ends the run `id` names: everything stops, its frames go, and the pane shows `patch`. */
@@ -148,12 +158,13 @@ const finish = async ($: EngineInterface, id: number, patch: Partial<Player>): P
 
 const killer = (child: { return: (value: never) => Promise<unknown> }) => () => void child.return(undefined as never).catch(() => {})
 
-/** Plays the audio track from the segment's start through ffplay until the segment ends. */
-const playSound = ($: EngineInterface, id: number, segment: number): void => {
+/** Plays the audio track from `atSec` through ffplay at the current volume; muted, nothing starts. */
+const playSound = ($: EngineInterface, id: number, segment: number, atSec: number): void => {
   const current = run
-  if (current === undefined || !isCurrent(id, segment) || !current.hasSound) return
-  const child = $.process.spawn({ argv: audioArgv(current.path, current.offsetSec) })
-  patchSegment(id, segment, r => ({ stops: [...r.stops, killer(child)] }))
+  const level = audibleLevel(volume)
+  if (current === undefined || !isCurrent(id, segment) || !current.hasSound || level === 0) return
+  const child = $.process.spawn({ argv: audioArgv(current.path, atSec, level) })
+  patchSegment(id, segment, () => ({ stopSound: killer(child) }))
   runInBackground(
     $,
     (async () => {
@@ -205,7 +216,14 @@ const showFrame = async ($: EngineInterface, id: number, segment: number): Promi
 }
 
 const lineFor = (r: Run, fps: number): string => {
-  const line = statusLine({ positionSec: currentPosition(r), durationSec: r.durationSec, fps, hasSound: r.hasSound, isPaused: r.isPaused })
+  const line = statusLine({
+    positionSec: currentPosition(r),
+    durationSec: r.durationSec,
+    fps,
+    hasSound: r.hasSound,
+    isPaused: r.isPaused,
+    volume: volumeLabel(volume),
+  })
   return r.lastDeny === undefined ? line : `${line} · 换帧被拒：${r.lastDeny}`
 }
 
@@ -214,7 +232,11 @@ const reportStats = async ($: EngineInterface, id: number, segment: number): Pro
   const current = run
   if (current === undefined || !isCurrent(id, segment)) return
   const stale = framesToDelete(current.deletedThrough, current.shown)
-  patchSegment(id, segment, r => ({ deletedThrough: Math.max(r.deletedThrough, r.shown - 1), shownSinceStats: 0 }))
+  patchSegment(id, segment, r => ({
+    deletedThrough: Math.max(r.deletedThrough, r.shown - 1),
+    shownSinceStats: 0,
+    lastFps: current.shownSinceStats,
+  }))
   if (stale.length > 0) await runQuietly($, ['rm', '-f', ...stale.map(index => framePath(current.segDir, index))])
   if (!isCurrent(id, segment)) return
   const latest = run
@@ -226,7 +248,7 @@ const startPlayback = async ($: EngineInterface, id: number, segment: number): P
   const startedAt = await $.clock.now()
   const current = patchSegment(id, segment, () => ({ startedAt }))
   if (current === undefined) return
-  playSound($, id, segment)
+  playSound($, id, segment, current.offsetSec)
   const frames = $.clock.every(Math.max(1, Math.floor(1000 / current.fps)), () => runInBackground($, showFrame($, id, segment)))
   const stats = $.clock.every(STATS_MS, () => runInBackground($, reportStats($, id, segment)))
   patchSegment(id, segment, r => ({ stops: [...r.stops, () => frames.cancel(), () => stats.cancel()] }))
@@ -279,6 +301,7 @@ const startSegment = async ($: EngineInterface, id: number, offsetSec: number): 
     deletedThrough: 0,
     startedAt: undefined,
     shownSinceStats: 0,
+    lastFps: before.fps,
     prevSegDir: before.segment > 0 ? before.segDir : undefined,
     stops: [],
   }
@@ -306,6 +329,28 @@ const resume = async ($: EngineInterface): Promise<string> => {
   if (!current.isPaused) return '正在播放'
   await startSegment($, current.id, current.pausedAtSec)
   return `从 ${formatClock(current.pausedAtSec)} 继续`
+}
+
+/**
+ * Applies a new volume and remembers it; while the sound plays, only ffplay restarts, from where
+ * the sound is now (the segment's start plus the real time since), so the picture carries on.
+ */
+const applyVolume = async ($: EngineInterface, next: Volume): Promise<string> => {
+  volume = next
+  await $.store.set(VOLUME_KEY, next)
+  const current = run
+  if (current !== undefined && !current.isPaused && current.startedAt !== undefined) {
+    const { id, segment, startedAt } = current
+    const atSec = current.offsetSec + ((await $.clock.now()) - startedAt) / 1000
+    if (isCurrent(id, segment)) {
+      run?.stopSound?.()
+      patchSegment(id, segment, () => ({ stopSound: undefined }))
+      playSound($, id, segment, atSec)
+    }
+  }
+  const latest = run
+  if (latest !== undefined) await setPlayer($, { line: lineFor(latest, latest.isPaused ? 0 : latest.lastFps) })
+  return volumeLabel(next)
 }
 
 const togglePause = async ($: EngineInterface): Promise<string> => (run?.isPaused === true ? resume($) : pause($))
@@ -366,6 +411,7 @@ const play = async ($: EngineInterface, path: string, fps: number): Promise<stri
     shown: 0,
     deletedThrough: 0,
     shownSinceStats: 0,
+    lastFps: fps,
     stops: [],
   }
   const decoding: Player = { status: 'decoding', dir, width: probe.width, height: probe.height, line: DECODING_LINE }
@@ -386,8 +432,9 @@ export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     await $.command.register({
       name: 'video',
-      description: '在侧边面板播放本地视频：/video <绝对路径> [fps] · pause · resume · seek <位置> · stop',
+      description: '在侧边面板播放本地视频：/video <绝对路径> [fps] · pause · resume · seek <位置> · volume <0–100> · mute · stop',
     })
+    volume = readVolume(await $.store.get(VOLUME_KEY))
     runInBackground($, removeLeftovers($))
     return next(e)
   })
@@ -403,6 +450,10 @@ export const register: Register = on => {
         return { text: await resume($) }
       case 'seek':
         return { text: await seek($, args.target) }
+      case 'volume':
+        return { text: await applyVolume($, setLevel(volume, args.level)) }
+      case 'mute':
+        return { text: await applyVolume($, toggleMute(volume)) }
       case 'stop':
         await stopCurrent($)
         await update($, playerAtom, () => IDLE)
@@ -456,6 +507,21 @@ export const register: Register = on => {
           <Button key="forward" hotkey="l" onPress={() => act(seek($, { kind: 'relative', sec: STEP_SEC }))}>
             10s »
           </Button>
+          {current.hasSound && (
+            <Button key="quieter" hotkey="j" onPress={() => act(applyVolume($, stepVolume(volume, -1)))}>
+              🔉
+            </Button>
+          )}
+          {current.hasSound && (
+            <Button key="louder" hotkey="k" onPress={() => act(applyVolume($, stepVolume(volume, 1)))}>
+              🔊
+            </Button>
+          )}
+          {current.hasSound && (
+            <Button key="mute" hotkey="m" onPress={() => act(applyVolume($, toggleMute(volume)))}>
+              {volume.isMuted ? '🔈' : '🔇'}
+            </Button>
+          )}
           <Text dimColor wrap="truncate-end">
             {player.line}
           </Text>

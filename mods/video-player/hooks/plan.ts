@@ -2,6 +2,7 @@
 
 import { parseSeek } from './timeline'
 import type { SeekTarget } from './timeline'
+import { parseLevel } from './volume'
 
 export const DEFAULT_FPS = 15
 export const MAX_FPS = 60
@@ -16,7 +17,8 @@ export type Tools = Readonly<Record<Tool, boolean>>
 export type PlayArgs =
   | { kind: 'play'; path: string; fps: number }
   | { kind: 'seek'; target: SeekTarget }
-  | { kind: 'stop' | 'pause' | 'resume' | 'usage' }
+  | { kind: 'volume'; level: number }
+  | { kind: 'stop' | 'pause' | 'resume' | 'mute' | 'usage' }
 export type Probe = { width: number; height: number; durationSec: number; hasAudioTrack: boolean }
 export type FrameSize = { width: number; height: number }
 
@@ -27,7 +29,11 @@ const unquote = (text: string): string => text.replace(/^(["'])(.*)\1$/, '$2')
 /** `/video <absolute path> [fps]`: the path may hold spaces, so a trailing whole number is the fps. */
 export const parseArgs = (args: string): PlayArgs => {
   const text = args.trim()
-  if (text === 'stop' || text === 'pause' || text === 'resume') return { kind: text }
+  if (text === 'stop' || text === 'pause' || text === 'resume' || text === 'mute') return { kind: text }
+  if (text === 'volume' || text.startsWith('volume ')) {
+    const level = parseLevel(text.slice('volume'.length))
+    return level === undefined ? USAGE : { kind: 'volume', level }
+  }
   if (text.startsWith('seek ')) {
     const target = parseSeek(text.slice('seek '.length))
     return target === undefined ? USAGE : { kind: 'seek', target }
@@ -100,8 +106,8 @@ export const decodeArgv = (path: string, fps: number, dir: string, size: FrameSi
   '-progress', 'pipe:1', '-f', 'image2', '-c:v', 'rawvideo', '-pix_fmt', 'rgb24', '-y', `${dir}/%06d.rgb`,
 ]
 
-export const audioArgv = (path: string, offsetSec: number): readonly string[] => [
-  'ffplay', '-nodisp', '-autoexit', '-loglevel', 'error', '-vn', '-sn', ...seekArgs(offsetSec), path,
+export const audioArgv = (path: string, offsetSec: number, level: number): readonly string[] => [
+  'ffplay', '-nodisp', '-autoexit', '-loglevel', 'error', '-vn', '-sn', '-volume', String(level), ...seekArgs(offsetSec), path,
 ]
 
 /** The last `frame=N` in a piece of ffmpeg's progress output, if any. */

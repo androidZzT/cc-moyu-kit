@@ -118,5 +118,8 @@ describe('paused status line', () => {
   test('starts with ⏸ and drops the frame rate', () => {
     expect(statusLine({ positionSec: 65, durationSec: 888.032, fps: 0, hasSound: true, isPaused: true })).toBe('⏸ 01:05 / 14:48')
     expect(statusLine({ positionSec: 65, durationSec: 888.032, fps: 0, hasSound: false, isPaused: true })).toBe('⏸ 01:05 / 14:48 · 无声音')
+    expect(statusLine({ positionSec: 65, durationSec: 888.032, fps: 15, hasSound: true, volume: '音量 60%' })).toBe('01:05 / 14:48 · 15 fps · 音量 60%')
+    expect(statusLine({ positionSec: 65, durationSec: 888.032, fps: 0, hasSound: true, isPaused: true, volume: '静音' })).toBe('⏸ 01:05 / 14:48 · 静音')
+    expect(statusLine({ positionSec: 65, durationSec: 888.032, fps: 15, hasSound: false, volume: '静音' })).toBe('01:05 / 14:48 · 15 fps · 无声音')
   })
 })

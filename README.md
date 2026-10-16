@@ -141,12 +141,13 @@ Play a local video in a side pane while an agent works: the picture in the pane,
 | `/video <absolute path> [fps]` | Play the file in the pane; fps 1–60, default 15 |
 | `/video pause` / `/video resume` | Pause on the current frame / carry on from there |
 | `/video seek <pos>` | Jump to `05:30` or `330` (seconds), or by `+10` / `-10` |
+| `/video volume <0–100>` / `/video mute` | Set the video's own volume / toggle mute; remembered across sessions |
 | `/video stop` | Stop the picture and the sound, remove the temporary frames, close the pane |
 
 - Needs ffmpeg and ffprobe (`brew install ffmpeg`, which brings ffplay for the sound) and a terminal that shows images, such as kitty or Ghostty
-- Under the picture: a progress bar as wide as the pane (click a cell to jump there) and ⏸/▶, « 10s, 10s » buttons with hotkeys `p`, `h`, `l` once the pane has focus, followed by `01:05 / 14:48 · 15 fps`
+- Under the picture: a progress bar as wide as the pane (click a cell to jump there) and ⏸/▶, « 10s, 10s », 🔉, 🔊, 🔇 buttons with hotkeys `p`, `h`, `l`, `j`, `k`, `m` once the pane has focus, followed by `01:05 / 14:48 · 15 fps · 音量 100%`
 - Frames are raw RGB, so the terminal draws them without decoding. ffmpeg runs only about 2 seconds ahead and frames already shown are deleted, so the temp folder stays around 30 MB at 15 fps whatever the length
-- No streams, subtitles, speed or volume control yet. Tested on macOS with Ghostty
+- No streams, subtitles or speed control yet. Tested on macOS with Ghostty
 
 Details in [`mods/video-player/README.md`](mods/video-player/README.md).
 

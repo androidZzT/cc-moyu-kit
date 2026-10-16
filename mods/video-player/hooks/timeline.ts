@@ -60,13 +60,25 @@ export const formatClock = (seconds: number): string => {
   return `${twoDigits(Math.floor(whole / 60))}:${twoDigits(whole % 60)}`
 }
 
-export type StatusInput = { positionSec: number; durationSec: number; fps: number; hasSound: boolean; isPaused?: boolean }
+export type StatusInput = {
+  positionSec: number
+  durationSec: number
+  fps: number
+  hasSound: boolean
+  isPaused?: boolean
+  /** The volume label, shown last when the video has sound. */
+  volume?: string
+}
 
-/** `01:05 / 14:48 · 15 fps` while playing; `⏸ 01:05 / 14:48` while paused; `无声音` last when silent. */
-export const statusLine = ({ positionSec, durationSec, fps, hasSound, isPaused = false }: StatusInput): string => {
+/**
+ * `01:05 / 14:48 · 15 fps · 音量 60%` while playing; `⏸ 01:05 / 14:48 · …` while paused;
+ * `无声音` last in place of the volume when silent.
+ */
+export const statusLine = ({ positionSec, durationSec, fps, hasSound, isPaused = false, volume }: StatusInput): string => {
   const clock = `${formatClock(positionSec)} / ${formatClock(durationSec)}`
   const parts = isPaused ? [`${PAUSED_MARK} ${clock}`] : [clock, `${fps} fps`]
-  return (hasSound ? parts : [...parts, NO_SOUND]).join(' · ')
+  const sound = hasSound ? (volume === undefined ? [] : [volume]) : [NO_SOUND]
+  return [...parts, ...sound].join(' · ')
 }
 
 /** Frames after `deletedThrough` and before the one on screen: shown already, so safe to remove. */
