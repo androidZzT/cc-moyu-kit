@@ -2,10 +2,11 @@ schema: spec-driven
 
 context: |
   所有 OpenSpec artifact 用中文撰写（代码标识符、API 名保持英文）
-  产物是 Claude Code mod（plugin hooks 模块，TypeScript/TSX），运行在无 DOM、无 Node 的沙箱里，只能通过 $（$.http.fetch / $.clock / $.ui / $.state / $.store）访问外部
+  仓库是 cc-moyu-kit（Claude Code 摸鱼套件），mods/ 下每个目录是一个独立 mod，各自登记在 .claude-plugin/marketplace.json
+  产物是 Claude Code mod（plugin hooks 模块，TypeScript/TSX），运行在无 DOM、无 Node 的沙箱里，只能通过 $（$.http / $.clock / $.ui / $.state / $.store / $.process 等）访问外部
+  套件共同目标是 agent 跑任务时低打扰地摸鱼：不得抢占输入焦点、不得弹窗打断、失败静默降级
+  market-pane：只读行情展示，不涉及下单、账户或任何交易操作
   $.http.fetch 只返回 text（按 UTF-8 解码），GBK 编码的行情接口里的中文字段不可直接使用
-  目标是 vibecoding 时低打扰地看行情：不得抢占输入焦点、不得弹窗打断、刷新失败静默降级
-  只读行情展示，不涉及下单、账户或任何交易操作
   $.http.fetch 不信任证书链到 GlobalSign Root R3 的 https 域名（如 web.ifzq.gtimg.cn、proxy.finance.qq.com），失败会被静默降级吞掉、界面只显示无数据；新增接口前先确认证书链到 DigiCert 等受信根，或在会话里实测 fetch
 
 # Project context (optional)
