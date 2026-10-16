@@ -4,6 +4,7 @@ import {
   audioArgv,
   decodeArgv,
   framePath,
+  frameSize,
   lastProgressFrame,
   parseArgs,
   parseProbe,
@@ -67,17 +68,36 @@ describe('probe', () => {
 })
 
 describe('decode and audio', () => {
-  test('decodes at playback speed with a 3 s head start, picture only, numbering frames from 1', () => {
-    const argv = decodeArgv('/v.mkv', 15, '/t/play.1')
+  test('frames are 640 wide with an even height that keeps the aspect', () => {
+    expect(frameSize(1280, 544)).toEqual({ width: 640, height: 272 })
+    expect(frameSize(640, 360)).toEqual({ width: 640, height: 360 })
+    expect(frameSize(1920, 817)).toEqual({ width: 640, height: 272 })
+  })
+
+  test('decodes raw RGB frames at playback speed with a 2 s head start, picture only, numbering from 1', () => {
+    const argv = decodeArgv('/v.mkv', 15, '/t/play.1/s1', { width: 640, height: 272 })
     expect(argv.join(' ')).toBe(
-      'ffmpeg -hide_banner -loglevel error -nostdin -readrate 1 -readrate_initial_burst 3 -i /v.mkv -an -sn ' +
-        '-vf fps=15,scale=640:-2 -progress pipe:1 -y /t/play.1/%06d.png',
+      'ffmpeg -hide_banner -loglevel error -nostdin -readrate 1 -readrate_initial_burst 2 -i /v.mkv -an -sn ' +
+        '-vf fps=15,scale=640:272 -progress pipe:1 -f image2 -c:v rawvideo -pix_fmt rgb24 -y /t/play.1/s1/%06d.rgb',
     )
-    expect(framePath('/t/play.1', 31)).toBe('/t/play.1/000031.png')
+    expect(framePath('/t/play.1/s1', 31)).toBe('/t/play.1/s1/000031.rgb')
   })
 
   test('plays the audio track with no window', () => {
-    expect(audioArgv('/v.mkv')).toEqual(['ffplay', '-nodisp', '-autoexit', '-loglevel', 'error', '-vn', '-sn', '/v.mkv'])
+    expect(audioArgv('/v.mkv', 0)).toEqual(['ffplay', '-nodisp', '-autoexit', '-loglevel', 'error', '-vn', '-sn', '/v.mkv'])
+  })
+
+  test('a segment starting later seeks both the picture and the sound there', () => {
+    expect(decodeArgv('/v.mkv', 15, '/t/s2', { width: 640, height: 272 }, 65.5).slice(5, 7)).toEqual(['-ss', '65.5'])
+    expect(audioArgv('/v.mkv', 65.5)).toEqual(['ffplay', '-nodisp', '-autoexit', '-loglevel', 'error', '-vn', '-sn', '-ss', '65.5', '/v.mkv'])
+  })
+
+  test('parses pause, resume and seek', () => {
+    expect(parseArgs('pause')).toEqual({ kind: 'pause' })
+    expect(parseArgs('resume')).toEqual({ kind: 'resume' })
+    expect(parseArgs('seek 05:30')).toEqual({ kind: 'seek', target: { kind: 'absolute', sec: 330 } })
+    expect(parseArgs('seek -10')).toEqual({ kind: 'seek', target: { kind: 'relative', sec: -10 } })
+    expect(parseArgs('seek later')).toEqual({ kind: 'usage' })
   })
 
   test('reads the last frame count from a piece of progress output', () => {

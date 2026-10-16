@@ -46,7 +46,7 @@ describe('pane drawing', () => {
     expect(tree).toContain('"columns":60')
     expect(tree).toContain('"rows":13')
     expect(tree).toContain('"alt":"视频画面"')
-    expect(tree).toMatch(new RegExp(`"file":"${ROOT}/play\\.1/0000\\d\\d\\.png"`))
+    expect(tree).toMatch(new RegExp(`"file":"${ROOT}/play\\.1/s1/0000\\d\\d\\.rgb","format":"rgb","width":640,"height":272`))
     expect(tree).toMatch(/\d\d:\d\d \/ 14:48 · \d+ fps/)
     await ui.unmount()
   })

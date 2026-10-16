@@ -1,4 +1,4 @@
-export type PlayerStatus = 'idle' | 'decoding' | 'playing' | 'done' | 'error'
+export type PlayerStatus = 'idle' | 'decoding' | 'playing' | 'paused' | 'done' | 'error'
 
 /** What the pane draws from; frame-by-frame counters stay out of state so a swap never redraws. */
 export type Player = {

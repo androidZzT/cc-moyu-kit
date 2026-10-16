@@ -5,8 +5,8 @@ import { ALT_DENY, NO_FFPLAY, ROOT, SILENT_PROBE, SINTEL_PROBE, setupWorld, star
 import type { WorldOptions } from './harness'
 
 const DIR = `${ROOT}/play.1`
-const frame = (n: number, dir = DIR): string => `${dir}/${String(n).padStart(6, '0')}.png`
-const frameNumber = (path: string): number => Number(/(\d{6})\.png$/.exec(path)?.[1] ?? 0)
+const frame = (n: number, dir = `${DIR}/s1`): string => `${dir}/${String(n).padStart(6, '0')}.rgb`
+const frameNumber = (path: string): number => Number(/(\d{6})\.rgb$/.exec(path)?.[1] ?? 0)
 
 /** Starts a session and `/video` on Sintel; ffmpeg is spawned but has decoded nothing yet. */
 const begin = async ($: Engine, on: Parameters<typeof setupWorld>[0], options: WorldOptions = {}) => {
@@ -117,7 +117,7 @@ describe('停止与换片', () => {
     expect(world.spawned('ffplay')[0]?.killed).toBe(true)
     expect(world.ran('rm')).toContainEqual(['rm', '-rf', DIR])
     expect(world.ffmpeg()?.argv).toContain('/Users/me/Other.mkv')
-    expect(world.ffmpeg()?.argv.at(-1)).toBe(`${ROOT}/play.2/%06d.png`)
+    expect(world.ffmpeg()?.argv.at(-1)).toBe(`${ROOT}/play.2/s1/%06d.rgb`)
   })
 })
 
