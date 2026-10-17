@@ -1,8 +1,8 @@
 <div align="center">
   <img src="docs/market-pane.png" width="720" alt="Claude Code 里的 market-pane" style="border-radius: 16px;">
   <h1>cc-moyu-kit · cc-摸鱼套件</h1>
-  <p><strong>Claude Code 摸鱼套件，第一个 mod 是 <code>market-pane</code>。</strong></p>
-  <p><strong>在 Claude Code 的侧边面板里看 A股、港股、美股行情。</strong></p>
+  <p><strong>Claude Code 摸鱼套件，目前有两个 mod：<code>market-pane</code> 和 <code>video-player</code>。</strong></p>
+  <p><strong>在 Claude Code 的侧边面板里看 A股、港股、美股行情，或者放视频。</strong></p>
   <p><em>基于 Claude Code 插件 hook 的 Claude Mods：不用 API key，不开新窗口，面板不抢输入焦点。</em></p>
 
   <p>
@@ -19,6 +19,7 @@
     <a href="#-快速开始">快速开始</a> &bull;
     <a href="#%EF%B8%8F-命令">命令</a> &bull;
     <a href="#-刷新与数据源">数据</a> &bull;
+    <a href="#-video-player">video-player</a> &bull;
     <a href="#%EF%B8%8F-开发">开发</a> &bull;
     <a href="README.md">English</a> | 简体中文
   </p>
@@ -30,7 +31,7 @@
 
 agent 跑一个长任务，人只能在旁边等。切到行情软件或浏览器看一眼盘，就离开了终端，Claude 什么时候需要你确认也容易错过。
 
-Claude Code 2.1.287 加入了 **Claude Mods**：插件可以开自己的面板、注册命令、通过宿主拉数据。`market-pane` 借这个能力，在对话右侧放一块行情面板。瞄一眼就能看盘，输入焦点一直留在 prompt 上。
+Claude Code 2.1.287 加入了 **Claude Mods**：插件可以开自己的面板、注册命令、通过宿主拉数据。`market-pane` 借这个能力，在对话右侧放一块行情面板。瞄一眼就能看盘，输入焦点一直留在 prompt 上。`video-player` 用同样的面板放视频，本地文件或 B 站、YouTube 链接都行。
 
 > cc-moyu-kit 是社区项目，与 Anthropic 无关。行情仅供参考，不构成投资建议。
 
@@ -130,7 +131,7 @@ claude --plugin-dir ./cc-moyu-kit/mods/market-pane
 
 ## 🎬 video-player
 
-agent 干活的时候，在侧边面板里放本地视频：画面在面板里，声音从扬声器出来。
+agent 干活的时候，在侧边面板里放本地视频或网络视频：画面在面板里，声音从扬声器出来。
 
 ```
 /plugin install video-player --marketplace androidZzT/cc-moyu-kit
@@ -147,6 +148,7 @@ agent 干活的时候，在侧边面板里放本地视频：画面在面板里�
 
 - 需要 ffmpeg 和 ffprobe（`brew install ffmpeg`，会一起装上出声音用的 ffplay），以及能显示图片的终端，如 kitty、Ghostty
 - 画面下方是和面板同宽的进度条（点哪一格跳到哪里），以及 ⏸/▶、« 10s、10s »、🔉、🔊、🔇 按钮；面板有焦点时可用快捷键 `p`、`h`、`l`、`j`、`k`、`m`；后面是 `01:05 / 14:48 · 15 fps · 音量 100%` 状态行
+- 声音真正出声后，画面时钟对齐到声音的位置，网络起播慢也不会音画错开
 - 帧是原始 RGB 像素，终端不用解码。ffmpeg 只比播放领先约 2 秒，播过的帧随即删除，15 fps 下临时目录在 30 MB 左右，和片长无关
 - 网页链接需要 `yt-dlp`（`brew install yt-dlp`）；画面最多取 480p，因为只按 640 宽显示。暂不支持直播、登录、播放列表、字幕和倍速。目前在 macOS + Ghostty 上验证过
 
@@ -163,7 +165,7 @@ claude plugin test .
 npx -p typescript tsc -p .   # 先用 --plugin-dir 加载一次，生成 .claude-plugin/types
 ```
 
-所有碰 `$`（引擎）的调用都集中在 `hooks/register.tsx`；解析、交易时段、绘制、自选逻辑都是纯函数模块，各有测试。文件说明见 [`mods/market-pane/README.md`](mods/market-pane/README.md)，`mods/video-player` 结构相同。
+所有碰 `$`（引擎）的调用都集中在 `hooks/register.tsx`；解析、交易时段、绘制、自选逻辑都是纯函数模块，各有测试。文件说明见 [`mods/market-pane/README.md`](mods/market-pane/README.md)，`mods/video-player` 结构相同，在它的目录下跑同样三条命令即可。
 
 需求和变更记录用 [OpenSpec](openspec/) 管理。
 

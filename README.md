@@ -1,8 +1,8 @@
 <div align="center">
   <img src="docs/market-pane.png" width="720" alt="market-pane in Claude Code" style="border-radius: 16px;">
   <h1>cc-moyu-kit</h1>
-  <p><strong>A slack-off toolkit (摸鱼套件) for Claude Code. First up: <code>market-pane</code>.</strong></p>
-  <p><strong>Watch A-share, Hong Kong and US markets from a side pane inside Claude Code.</strong></p>
+  <p><strong>A slack-off toolkit (摸鱼套件) for Claude Code, with two mods so far: <code>market-pane</code> and <code>video-player</code>.</strong></p>
+  <p><strong>Watch A-share, Hong Kong and US markets, or play a video, from a side pane inside Claude Code.</strong></p>
   <p><em>Claude Mods built on Claude Code's plugin hooks. No API key, no extra window, and the pane never takes your input focus.</em></p>
 
   <p>
@@ -19,6 +19,7 @@
     <a href="#-quick-start">Quick Start</a> &bull;
     <a href="#-commands">Commands</a> &bull;
     <a href="#-refresh--data-sources">Data</a> &bull;
+    <a href="#-video-player">video-player</a> &bull;
     <a href="#-development">Development</a> &bull;
     English | <a href="README_CN.md">简体中文</a>
   </p>
@@ -30,7 +31,7 @@
 
 A long agent turn leaves you waiting. Switching to a broker app or a browser tab to check the market pulls you out of the terminal, and it's easy to miss the moment Claude needs you again.
 
-Claude Code 2.1.287 added **Claude Mods**: plugins can now open their own panes, register commands and fetch data through the host. `market-pane` uses that to dock a market board on the right side of the transcript. You check the market with a glance, and your prompt keeps the focus.
+Claude Code 2.1.287 added **Claude Mods**: plugins can now open their own panes, register commands and fetch data through the host. `market-pane` uses that to dock a market board on the right side of the transcript. You check the market with a glance, and your prompt keeps the focus. `video-player` puts a video in the same kind of pane, from a local file or a Bilibili or YouTube link.
 
 > cc-moyu-kit is a community project, not affiliated with Anthropic. Quotes are for reference only and are not investment advice.
 
@@ -147,6 +148,7 @@ Play a local video or a web link in a side pane while an agent works: the pictur
 
 - Needs ffmpeg and ffprobe (`brew install ffmpeg`, which brings ffplay for the sound) and a terminal that shows images, such as kitty or Ghostty
 - Under the picture: a progress bar as wide as the pane (click a cell to jump there) and ⏸/▶, « 10s, 10s », 🔉, 🔊, 🔇 buttons with hotkeys `p`, `h`, `l`, `j`, `k`, `m` once the pane has focus, followed by `01:05 / 14:48 · 15 fps · 音量 100%`
+- Once the sound actually starts, the picture clock is aligned to it, so a slow network start does not leave the sound behind
 - Frames are raw RGB, so the terminal draws them without decoding. ffmpeg runs only about 2 seconds ahead and frames already shown are deleted, so the temp folder stays around 30 MB at 15 fps whatever the length
 - Web pages need `yt-dlp` (`brew install yt-dlp`); the picture is fetched at up to 480p since it is drawn 640 wide. No live streams, logins, playlists, subtitles or speed control yet. Tested on macOS with Ghostty
 
@@ -163,7 +165,7 @@ claude plugin test .
 npx -p typescript tsc -p .   # load once with --plugin-dir first to generate .claude-plugin/types
 ```
 
-Every call that touches `$` (the engine) lives in `hooks/register.tsx`; parsing, trading hours, rendering and watchlist logic are pure modules with their own tests. See [`mods/market-pane/README.md`](mods/market-pane/README.md) for the file map. `mods/video-player` follows the same layout.
+Every call that touches `$` (the engine) lives in `hooks/register.tsx`; parsing, trading hours, rendering and watchlist logic are pure modules with their own tests. See [`mods/market-pane/README.md`](mods/market-pane/README.md) for the file map. `mods/video-player` follows the same layout; run the same three commands there.
 
 Specs and change history are kept with [OpenSpec](openspec/).
 
