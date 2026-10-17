@@ -12,4 +12,4 @@
 ## 3. 文档与验证
 
 - [x] 3.1 更新 `mods/video-player/README.md`（命令、控制行、不支持一栏）与根 README 的 video-player 小节；`claude plugin validate`、`claude plugin test`、tsc 通过；同步 dev-mods 副本
-- [ ] 3.2 在 Ghostty 里实际调音量、静音，确认画面不受影响、声音从当前位置继续
+- [x] 3.2 在 Ghostty 里实际调音量、静音，确认画面不受影响、声音从当前位置继续

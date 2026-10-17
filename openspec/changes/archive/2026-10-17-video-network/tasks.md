@@ -13,4 +13,4 @@
 ## 3. 文档与验证
 
 - [x] 3.1 更新 mod README 与根 README（命令、yt-dlp 依赖、带宽、不支持项）；validate、test、tsc 通过；同步 dev-mods 副本
-- [ ] 3.2 在 Ghostty 里实际播放一个 B 站链接与一个直链，确认画面、声音对齐，跳转可用
+- [x] 3.2 在 Ghostty 里实际播放一个 B 站链接与一个直链，确认画面、声音对齐，跳转可用
